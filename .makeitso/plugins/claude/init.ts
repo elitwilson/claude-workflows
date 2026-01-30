@@ -7,6 +7,12 @@ import {
   discoverStacks,
   discoverStackWorkflows,
 } from "./discovery.ts";
+import {
+  fetchWorkflowFile,
+  ensureDirectory,
+  writeWorkflowFile,
+} from "./lib.ts";
+import { denoFs } from "./deno-fs.ts";
 
 try {
   const ctx: PluginContext = await mis.loadContext();
@@ -24,19 +30,25 @@ try {
   const availableStacks = await discoverStacks(owner, repo, branch);
 
   // Select core workflows
-  const selectedCore = await Checkbox.prompt({
+  const selectedCoreRaw = await Checkbox.prompt({
     message: "Select core workflows to install:",
     options: coreWorkflows.map((w) => ({ name: w.name, value: w.path })),
     default: coreWorkflows.map((w) => w.path), // All selected by default
   });
+  const selectedCore = Array.isArray(selectedCoreRaw)
+    ? selectedCoreRaw.map(item => typeof item === 'string' ? item : item.value)
+    : [];
 
   console.log(`\nSelected ${selectedCore.length} core workflow(s)\n`);
 
   // Select language stacks
-  const selectedStackNames = await Checkbox.prompt({
+  const selectedStackNamesRaw = await Checkbox.prompt({
     message: "Select language stacks to install:",
     options: availableStacks.map((s) => ({ name: s.displayName, value: s.name })),
   });
+  const selectedStackNames = Array.isArray(selectedStackNamesRaw)
+    ? selectedStackNamesRaw.map(item => typeof item === 'string' ? item : item.value)
+    : [];
 
   // Collect all stack workflow files
   const stackFiles: string[] = [];
@@ -55,15 +67,57 @@ try {
   console.log(`  Stack workflows: ${stackFiles.length}`);
   console.log(`  Target directory: ${ctx.project_root}/.claude/rules/`);
 
-  console.log("\n🚧 POC: File installation not implemented yet\n");
-  console.log("Selected files:");
-  allFiles.forEach((file) => console.log(`  - ${file}`));
+  // Get dry-run flag from context
+  const dryRun = ctx.dry_run || false;
+
+  if (dryRun) {
+    console.log("\n🔍 Dry-run mode: No files will be created\n");
+  } else {
+    console.log("\n📦 Installing workflow files...\n");
+  }
+
+  // Create directory structure
+  const claudeDir = `${ctx.project_root}/.claude`;
+  const rulesDir = `${claudeDir}/rules`;
+
+  await ensureDirectory(claudeDir, dryRun, denoFs, console.log);
+  await ensureDirectory(rulesDir, dryRun, denoFs, console.log);
+
+  // Build raw GitHub URL base
+  const rawBaseUrl = `https://raw.githubusercontent.com/${owner}/${repo}`;
+
+  // Download and write each selected file
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (const filePath of allFiles) {
+    try {
+      const content = await fetchWorkflowFile(rawBaseUrl, branch, filePath);
+      const fileName = filePath.split("/").pop() || filePath;
+      const targetPath = `${rulesDir}/${fileName}`;
+
+      await writeWorkflowFile(targetPath, content, dryRun, denoFs, console.log);
+      successCount++;
+    } catch (error) {
+      console.error(`❌ Error installing ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+      errorCount++;
+    }
+  }
+
+  console.log(`\n✅ Installation ${dryRun ? "preview" : "complete"}!`);
+  console.log(`   Successfully processed: ${successCount}`);
+  if (errorCount > 0) {
+    console.log(`   Errors: ${errorCount}`);
+  }
 
   mis.outputSuccess({
-    message: "Init workflow complete (POC)",
+    message: dryRun ? "Init workflow complete (dry-run)" : "Init workflow complete",
     selected_core: selectedCore,
     selected_stacks: selectedStackNames,
     total_files: allFiles.length,
+    successful: successCount,
+    errors: errorCount,
+    dry_run: dryRun,
   });
 } catch (error) {
   mis.outputError(error instanceof Error ? error.message : String(error));

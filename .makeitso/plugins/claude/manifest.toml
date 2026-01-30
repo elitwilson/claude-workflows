@@ -31,6 +31,7 @@ script = "./init.ts"
 
 [commands.init.args.optional]
 stack = { description = "Comma-separated stacks to include (e.g., python,typescript)", arg_type = "string" }
+dry-run = { description = "Preview changes without modifying files", arg_type = "boolean" }
 
 [commands.upgrade]
 description = "Upgrade workflow files to latest version"

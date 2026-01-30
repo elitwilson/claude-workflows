@@ -1,4 +1,20 @@
 /**
+ * FileSystem abstraction for cross-runtime compatibility
+ * Implementations: deno-fs.ts (Deno), node-fs.ts (Node.js/npx)
+ */
+export interface FileSystem {
+  mkdir(path: string, recursive: boolean): Promise<void>;
+  exists(path: string): Promise<boolean>;
+  writeFile(path: string, content: string): Promise<void>;
+  readFile(path: string): Promise<string>;
+}
+
+/**
+ * Logger function type
+ */
+export type LogFn = (message: string) => void;
+
+/**
  * Fetches a workflow file from the GitHub repository
  */
 export async function fetchWorkflowFile(
@@ -26,4 +42,46 @@ export async function fetchWorkflowFile(
       `Failed to fetch ${filePath}: ${error instanceof Error ? error.message : String(error)}`
     );
   }
+}
+
+/**
+ * Ensures a directory exists, creating it if necessary
+ * Portable - works with any FileSystem implementation
+ */
+export async function ensureDirectory(
+  path: string,
+  dryRun: boolean,
+  fs: FileSystem,
+  log: LogFn
+): Promise<void> {
+  if (dryRun) {
+    log(`Would create directory: ${path}`);
+    return;
+  }
+
+  const dirExists = await fs.exists(path);
+  if (!dirExists) {
+    await fs.mkdir(path, true);
+    log(`Created directory: ${path}`);
+  }
+}
+
+/**
+ * Writes a workflow file to the specified path
+ * Portable - works with any FileSystem implementation
+ */
+export async function writeWorkflowFile(
+  path: string,
+  content: string,
+  dryRun: boolean,
+  fs: FileSystem,
+  log: LogFn
+): Promise<void> {
+  if (dryRun) {
+    log(`Would write file: ${path}`);
+    return;
+  }
+
+  await fs.writeFile(path, content);
+  log(`Wrote file: ${path}`);
 }
