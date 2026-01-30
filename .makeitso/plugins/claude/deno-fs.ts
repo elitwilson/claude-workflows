@@ -4,7 +4,7 @@
  * by Deno-based entry points (init.ts, upgrade.ts, add.ts)
  */
 
-import type { FileSystem } from "./lib.ts";
+import type { FileSystem, DirEntry } from "./lib.ts";
 
 /**
  * Deno implementation of FileSystem interface
@@ -32,5 +32,19 @@ export const denoFs: FileSystem = {
 
   async readFile(path: string): Promise<string> {
     return await Deno.readTextFile(path);
+  },
+
+  async readDir(path: string): Promise<DirEntry[]> {
+    const entries: DirEntry[] = [];
+
+    for await (const entry of Deno.readDir(path)) {
+      entries.push({
+        name: entry.name,
+        isFile: entry.isFile,
+        isDirectory: entry.isDirectory,
+      });
+    }
+
+    return entries;
   },
 };

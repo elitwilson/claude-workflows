@@ -1,4 +1,13 @@
 /**
+ * Directory entry information
+ */
+export interface DirEntry {
+  name: string;
+  isFile: boolean;
+  isDirectory: boolean;
+}
+
+/**
  * FileSystem abstraction for cross-runtime compatibility
  * Implementations: deno-fs.ts (Deno), node-fs.ts (Node.js/npx)
  */
@@ -7,12 +16,21 @@ export interface FileSystem {
   exists(path: string): Promise<boolean>;
   writeFile(path: string, content: string): Promise<void>;
   readFile(path: string): Promise<string>;
+  readDir(path: string): Promise<DirEntry[]>;
 }
 
 /**
  * Logger function type
  */
 export type LogFn = (message: string) => void;
+
+/**
+ * Frontmatter metadata structure
+ */
+export interface Frontmatter {
+  version: string;
+  updated: string;
+}
 
 /**
  * Fetches a workflow file from the GitHub repository
@@ -84,4 +102,80 @@ export async function writeWorkflowFile(
 
   await fs.writeFile(path, content);
   log(`Wrote file: ${path}`);
+}
+
+/**
+ * Parses YAML frontmatter from markdown file content
+ * Returns null if frontmatter is missing or invalid
+ */
+export function parseFrontmatter(content: string): Frontmatter | null {
+  // Normalize line endings to \n
+  const normalized = content.replace(/\r\n/g, "\n");
+
+  // Match frontmatter block: --- at start, content, then ---
+  const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
+  const match = normalized.match(frontmatterRegex);
+
+  if (!match) {
+    return null;
+  }
+
+  const frontmatterBlock = match[1];
+
+  // Extract version and updated fields
+  const versionMatch = frontmatterBlock.match(/^version:\s*(.+)$/m);
+  const updatedMatch = frontmatterBlock.match(/^updated:\s*(.+)$/m);
+
+  if (!versionMatch) {
+    return null;
+  }
+
+  return {
+    version: versionMatch[1].trim(),
+    updated: updatedMatch ? updatedMatch[1].trim() : "",
+  };
+}
+
+/**
+ * Calculates SHA-256 checksum of content
+ * Uses Web Crypto API for cross-platform compatibility
+ */
+export async function calculateChecksum(content: string): Promise<string> {
+  // Convert string to Uint8Array
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+
+  // Calculate SHA-256 hash
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+
+  // Convert ArrayBuffer to hex string
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+  return hashHex;
+}
+
+/**
+ * Discovers installed workflow files in the specified directory
+ * Returns array of file paths for all .md files
+ */
+export async function discoverInstalledWorkflows(
+  rulesDir: string,
+  fs: FileSystem
+): Promise<string[]> {
+  // Check if directory exists
+  const dirExists = await fs.exists(rulesDir);
+  if (!dirExists) {
+    return [];
+  }
+
+  // Read directory contents
+  const entries = await fs.readDir(rulesDir);
+
+  // Filter for .md files only
+  const mdFiles = entries
+    .filter(entry => entry.isFile && entry.name.endsWith(".md"))
+    .map(entry => `${rulesDir}/${entry.name}`);
+
+  return mdFiles;
 }
