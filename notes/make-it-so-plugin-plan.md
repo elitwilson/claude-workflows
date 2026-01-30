@@ -1,7 +1,7 @@
 
 # Feature: Make It So Plugin for Claude Workflows
 
-**Status:** Planning\
+**Status:** In Progress\
 **Started:** 2026-01-30\
 **Completed:** TBD
 
@@ -24,9 +24,8 @@ A `mis` plugin named `claude` that automates the setup and maintenance of Claude
 - Allow adding additional workflows to existing setups
 
 Users interact with the plugin via:
-- `mis run claude:init` - Initial setup with interactive stack selection
+- `mis run claude:add` - Add workflow files (works for first-time setup and incremental additions)
 - `mis run claude:upgrade` - Update to latest workflow versions
-- `mis run claude:add` - Add additional workflows via interactive UI
 
 ## Integration Points
 
@@ -42,11 +41,10 @@ _Existing code this feature touches_
 
 - Fetches workflow files from GitHub `main` branch by default
 - Creates `.claude/rules/` directory and copies selected workflow files
-- Creates `.claude/CLAUDE.md` from template
-- Tracks installed files in `.claude/.metadata.json` with versions and checksums
-- Detects local modifications via checksum comparison
-- Shows interactive UI for selecting workflows during init and add operations
+- Shows interactive UI for selecting workflows during add operations
+- Detects local modifications by comparing checksums (computed on-demand, no metadata storage)
 - Preserves user modifications during upgrades (with flags to override)
+- Walks filesystem to discover installed files (no metadata file needed)
 
 ---
 
@@ -54,14 +52,14 @@ _Existing code this feature touches_
 
 _How do we know this is working correctly and the problem is solved?_
 
-- [ ] `mis run claude:init` creates `.claude/` structure with user-selected core and stack files
+- [x] `mis run claude:add` creates `.claude/` structure with user-selected core and stack files
+- [x] `mis run claude:add` shows UI for selecting workflows and adds them
+- [x] Works in monorepo scenarios (operates on current directory)
+- [x] Supports `--dry-run` flag to preview changes
 - [ ] `mis run claude:upgrade` detects newer versions and updates unmodified files
-- [ ] `mis run claude:add` shows UI for selecting additional workflows and adds them
 - [ ] Modified files are detected and skipped during upgrade (unless `--force` used)
-- [ ] All workflow `.md` files include YAML frontmatter with version and checksum
-- [ ] `.claude/.metadata.json` accurately tracks installed file state
-- [ ] Works in monorepo scenarios (operates on current directory)
-- [ ] Plugin works offline once files are cached/installed
+- [ ] All workflow `.md` files include YAML frontmatter with version
+- [ ] `upgrade` command compares versions from frontmatter to detect updates
 
 ---
 
@@ -69,26 +67,26 @@ _How do we know this is working correctly and the problem is solved?_
 
 ### In Scope
 
-- `claude:init` command with interactive stack/workflow selection UI
+- `claude:add` command with interactive UI for adding workflows (first-time and incremental)
 - `claude:upgrade` command with version tracking and conflict detection
-- `claude:add` command with interactive UI for adding workflows
-- YAML frontmatter in all workflow `.md` files (version, updated date, checksum)
-- `.claude/.metadata.json` for tracking installed files and modifications
+- YAML frontmatter in all workflow `.md` files (version, updated date)
 - Fetching from GitHub raw content URLs (default: main branch)
 - Configuration options in `config.toml` for repo URL and branch
 - Basic monorepo support (plugin operates in current working directory)
-- Conflict detection via checksum comparison
+- Conflict detection via on-demand checksum comparison (no metadata file)
 - Flags: `--force` (overwrite all), `--skip-modified` (preserve user edits), `--dry-run` (preview changes)
 
 ### Out of Scope
 
+- `.claude/.metadata.json` tracking (decided against - filesystem walking is sufficient)
+- CLAUDE.md template creation (skipped for MVP)
 - Auto-populating CLAUDE.md template with detected project information (future enhancement)
 - Interactive diff/merge UI for conflicts (future enhancement)
 - Git submodule or bundled approach (we're fetching from remote)
 - Advanced monorepo orchestration (bulk operations across packages)
 - GitHub API integration for discovering latest tags/releases (just use main branch)
 - Authentication for private repositories (public repo only for MVP)
-- Offline-first bundled files (network required for init/upgrade)
+- Offline-first bundled files (network required for add/upgrade)
 
 ---
 
@@ -96,30 +94,33 @@ _How do we know this is working correctly and the problem is solved?_
 
 _Edge cases, constraints, or gotchas to keep in mind_
 
-- **Network dependency**: Plugin requires internet access for init/upgrade operations
-- **Checksum strategy**: Need consistent checksum algorithm (probably SHA-256 of file content excluding frontmatter)
-- **Frontmatter parsing**: Must strip YAML frontmatter before calculating checksums to avoid false positives
+- **Network dependency**: Plugin requires internet access for add/upgrade operations
+- **Checksum strategy**: SHA-256 of entire file content (including frontmatter). Computed on-demand during upgrade.
+- **Frontmatter parsing**: Parse version from YAML frontmatter to determine if update is needed
+- **Modification detection**: Compare checksum of local file vs. checksum of same-version file fetched from GitHub
 - **GitHub rate limits**: Using raw content URLs avoids most rate limiting, but should handle HTTP errors gracefully
-- **Monorepo flexibility**: Users decide where to run `init` - plugin doesn't enforce structure
-- **Concurrent updates**: If workflows repo changes frequently, may want to add version pinning option in future
-- **File permissions**: Ensure created files are writable by user for future modifications
+- **Monorepo flexibility**: Users decide where to run `add` - plugin doesn't enforce structure
+- **Version trust**: Assumes version numbers in frontmatter are properly maintained (file changes = version bump)
+- **File permissions**: Created files use system defaults
 
 ---
 
 ## High-Level Todo
 
+- [x] Create `mis` plugin scaffolding
+- [x] Implement `manifest.toml` with commands and required permissions
+- [x] Create `config.toml` with GitHub repo URL and default branch
+- [x] Implement file fetching from GitHub raw URLs with error handling
+- [x] Build interactive UI for workflow selection
+- [x] Implement portable FileSystem abstraction (ready for npx port)
+- [x] Implement directory creation and file writing with dry-run support
+- [x] Implement `claude:add` command (works for first-time and incremental)
+- [x] Test in single-repo projects
 - [ ] Add YAML frontmatter to all existing workflow .md files in claude-workflows repo
-- [ ] Create `mis` plugin scaffolding (`mis create claude` in make-it-so-cli)
-- [ ] Implement `manifest.toml` with three commands and required permissions
-- [ ] Create `config.toml` with GitHub repo URL and default branch
-- [ ] Implement file fetching from GitHub raw URLs with error handling
-- [ ] Build interactive UI for workflow selection (for both init and add)
-- [ ] Implement `.claude/.metadata.json` creation and management
-- [ ] Implement checksum calculation and comparison logic
-- [ ] Implement `claude:init` command
+- [ ] Implement filesystem walking to discover installed files
+- [ ] Implement frontmatter parsing to extract versions
+- [ ] Implement checksum calculation for modification detection
 - [ ] Implement `claude:upgrade` command with conflict detection
-- [ ] Implement `claude:add` command
-- [ ] Test in single-repo projects
 - [ ] Test in monorepo scenarios (multiple .claude directories)
 - [ ] Add documentation to plugin README
 - [ ] Update claude-workflows README with plugin usage instructions
@@ -132,18 +133,33 @@ _Edge cases, constraints, or gotchas to keep in mind_
 
 Key decisions made:
 - **Remote-first approach**: Fetch from GitHub rather than bundling files in plugin. Network access is acceptable trade-off for always having latest workflows.
-- **Interactive UI**: Both `init` and `add` commands will use interactive selection UI rather than command-line flags. Better UX for discovering available workflows.
+- **Interactive UI**: `add` command uses interactive selection UI rather than command-line flags. Better UX for discovering available workflows.
 - **Simple monorepo support**: Plugin operates in current directory. Users control where `.claude/` directories are created. No magic auto-detection.
-- **Versioning via frontmatter**: Each .md file gets YAML frontmatter with version, date, and checksum. `.metadata.json` tracks installation state.
+- **Versioning via frontmatter**: Each .md file gets YAML frontmatter with version and date.
 - **Default to main branch**: Always fetch latest from main rather than pinned versions or git tags. Keep it simple for MVP.
+- **Merged init+add**: Single `add` command handles both first-time setup and incremental additions. No need for separate `init`.
+- **No metadata file**: Skip `.metadata.json`. Walk filesystem to discover files, parse frontmatter for versions, compute checksums on-demand.
+
+### 2026-01-30 - Implementation Session 1
+
+Completed TDD implementation of core file operations:
+- **Portable architecture**: `FileSystem` interface abstracts I/O operations (Deno adapter implemented, Node.js ready)
+- **File installation**: `ensureDirectory()` and `writeWorkflowFile()` with full test coverage
+- **Dry-run support**: All operations log intended actions without executing in dry-run mode
+- **`claude:add` command**: Fully functional - discovers workflows, presents UI, installs files
+- **Testing**: 7 unit tests passing, manual testing successful
+
+Architecture decision rationale:
+- FileSystem abstraction enables easy npx/Node.js port later
+- No metadata storage simplifies implementation and reduces maintenance
+- Trust version numbers in frontmatter (enforced by workflow process)
+- Compute checksums on-demand only during upgrade (not at install time)
 
 ### File Structure
 
 Plugin creates:
 ```
 .claude/
-├── .metadata.json          # Tracks installed files and versions
-├── CLAUDE.md               # Project-specific instructions (from template)
 └── rules/
     ├── tdd-workflow.md     # Core workflows
     ├── claude-code-usage.md
@@ -152,30 +168,31 @@ Plugin creates:
     └── [stack-specific].md # e.g., python/code-style.md
 ```
 
-Metadata format:
-```json
-{
-  "installed_at": "2026-01-30T10:00:00Z",
-  "source_repo": "https://github.com/elitwilson/claude-workflows",
-  "source_branch": "main",
-  "files": {
-    "rules/tdd-workflow.md": {
-      "version": "0.1.0",
-      "checksum": "abc123...",
-      "modified": false,
-      "installed_at": "2026-01-30T10:00:00Z"
-    }
-  }
-}
-```
-
-YAML frontmatter format:
+YAML frontmatter format (in each workflow file):
 ```yaml
 ---
 version: 0.1.0
 updated: 2026-01-30
 ---
 ```
+
+### Upgrade Detection Logic
+
+How `upgrade` determines what to update:
+
+1. **Discover installed files**: Walk `.claude/rules/` directory
+2. **Parse versions**: Extract version from frontmatter of each local file
+3. **Fetch latest from GitHub**: Download same file from main branch
+4. **Compare versions**: Check if remote version > local version
+5. **Detect modifications** (if versions match):
+   - Fetch the file at local version from GitHub
+   - Calculate checksum of fetched file
+   - Calculate checksum of local file
+   - If checksums differ → user modified it
+6. **Apply updates**:
+   - Update if: remote version > local version AND (not modified OR `--force`)
+   - Skip if: user modified AND not `--force`
+   - Report skipped files
 
 ### Future Enhancements (Post-MVP)
 
