@@ -19,7 +19,7 @@ registry = ""
 [permissions]
 file_read = ["."]
 file_write = ["."]
-network = ["raw.githubusercontent.com"]
+network = ["raw.githubusercontent.com", "api.github.com"]
 
 # -----------------------------
 # CLI Commands
@@ -50,3 +50,4 @@ script = "./add.ts"
 # These are remote modules your plugin can import.
 # -----------------------------
 [deno_dependencies]
+cliffy = "https://deno.land/x/cliffy@v1.0.0-rc.4/prompt/mod.ts"
