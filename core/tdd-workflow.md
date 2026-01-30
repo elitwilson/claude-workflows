@@ -5,6 +5,8 @@ updated: 2026-01-30
 
 # TDD Workflow
 
+BLAHHHHHHH
+
 ## !! CRITICAL !! Core Principles
 
 **Ownership:** Developer owns planning and architectural decisions. AI executes the plan.
