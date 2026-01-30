@@ -1,3 +1,8 @@
+---
+version: 0.1.0
+updated: 2026-01-30
+---
+
 # Claude Code Tool Usage Rules
 
 ## !! CRITICAL !! Plan Mode

@@ -1,3 +1,13 @@
+---
+version: 0.1.0
+updated: 2026-01-30
+---
+
+---
+version: 0.1.0
+updated: 2026-01-30
+---
+
 # TypeScript Code Style
 
 ## !! CRITICAL !! Core Philosophy

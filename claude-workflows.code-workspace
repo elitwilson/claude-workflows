@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../tools/make-it-so-cli"
+		},
+		{
+			"path": "../tools/make-it-so-plugins-spi"
+		}
+	],
+	"settings": {}
+}
