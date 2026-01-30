@@ -17,7 +17,7 @@ import { denoFs } from "./deno-fs.ts";
 try {
   const ctx: PluginContext = await mis.loadContext();
 
-  console.log("🪄 Claude Workflows Setup\n");
+  console.log("🪄 Add Claude Workflows\n");
   console.log("Discovering available workflows...\n");
 
   // Extract repo owner and name from config
@@ -33,7 +33,6 @@ try {
   const selectedCoreRaw = await Checkbox.prompt({
     message: "Select core workflows to install:",
     options: coreWorkflows.map((w) => ({ name: w.name, value: w.path })),
-    default: coreWorkflows.map((w) => w.path), // All selected by default
   });
   const selectedCore = Array.isArray(selectedCoreRaw)
     ? selectedCoreRaw.map(item => typeof item === 'string' ? item : item.value)
@@ -111,7 +110,7 @@ try {
   }
 
   mis.outputSuccess({
-    message: dryRun ? "Init workflow complete (dry-run)" : "Init workflow complete",
+    message: dryRun ? "Add workflow complete (dry-run)" : "Add workflow complete",
     selected_core: selectedCore,
     selected_stacks: selectedStackNames,
     total_files: allFiles.length,

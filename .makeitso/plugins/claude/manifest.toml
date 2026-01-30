@@ -25,11 +25,11 @@ network = ["raw.githubusercontent.com", "api.github.com"]
 # CLI Commands
 # Define each command with its own section.
 # -----------------------------
-[commands.init]
-description = "Initialize .claude/ directory with workflow files"
-script = "./init.ts"
+[commands.add]
+description = "Add workflow files to .claude/ directory"
+script = "./add.ts"
 
-[commands.init.args.optional]
+[commands.add.args.optional]
 stack = { description = "Comma-separated stacks to include (e.g., python,typescript)", arg_type = "string" }
 dry-run = { description = "Preview changes without modifying files", arg_type = "boolean" }
 
@@ -41,10 +41,6 @@ script = "./upgrade.ts"
 force = { description = "Overwrite all files, including modified ones", arg_type = "boolean" }
 skip-modified = { description = "Skip files that have been modified", arg_type = "boolean" }
 dry-run = { description = "Preview changes without modifying files", arg_type = "boolean" }
-
-[commands.add]
-description = "Add additional workflow files to existing setup"
-script = "./add.ts"
 
 # -----------------------------
 # External Deno Dependencies
