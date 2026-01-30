@@ -40,7 +40,9 @@ export async function fetchWorkflowFile(
   branch: string,
   filePath: string
 ): Promise<string> {
-  const url = `${repoUrl}/${branch}/${filePath}`;
+  // Add cache-busting timestamp to avoid GitHub CDN caching issues
+  const cacheBuster = `?t=${Date.now()}`;
+  const url = `${repoUrl}/${branch}/${filePath}${cacheBuster}`;
 
   try {
     const response = await fetch(url);

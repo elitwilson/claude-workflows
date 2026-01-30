@@ -13,6 +13,11 @@ import {
   writeWorkflowFile,
 } from "./lib.ts";
 import { denoFs } from "./deno-fs.ts";
+import {
+  loadMetadata,
+  saveMetadata,
+  addFileToMetadata,
+} from "./metadata.ts";
 
 try {
   const ctx: PluginContext = await mis.loadContext();
@@ -85,6 +90,9 @@ try {
   // Build raw GitHub URL base
   const rawBaseUrl = `https://raw.githubusercontent.com/${owner}/${repo}`;
 
+  // Load existing metadata
+  const metadata = await loadMetadata(claudeDir, denoFs);
+
   // Download and write each selected file
   let successCount = 0;
   let errorCount = 0;
@@ -96,11 +104,22 @@ try {
       const targetPath = `${rulesDir}/${fileName}`;
 
       await writeWorkflowFile(targetPath, content, dryRun, denoFs, console.log);
+
+      // Track file in metadata
+      if (!dryRun) {
+        addFileToMetadata(metadata, fileName, filePath);
+      }
+
       successCount++;
     } catch (error) {
       console.error(`❌ Error installing ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
       errorCount++;
     }
+  }
+
+  // Save metadata
+  if (!dryRun && successCount > 0) {
+    await saveMetadata(claudeDir, metadata, denoFs);
   }
 
   console.log(`\n✅ Installation ${dryRun ? "preview" : "complete"}!`);

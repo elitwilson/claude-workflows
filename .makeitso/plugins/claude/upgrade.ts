@@ -9,6 +9,7 @@ import {
   discoverInstalledWorkflows,
 } from "./lib.ts";
 import { denoFs } from "./deno-fs.ts";
+import { loadMetadata, getFileSource } from "./metadata.ts";
 
 interface UpgradeResult {
   upgraded: string[];
@@ -39,6 +40,7 @@ function isNewerVersion(localVersion: string, remoteVersion: string): boolean {
  */
 async function performUpgrade(
   rulesDir: string,
+  claudeDir: string,
   repoUrl: string,
   branch: string,
   force: boolean,
@@ -49,6 +51,9 @@ async function performUpgrade(
     skipped: [],
     errors: [],
   };
+
+  // Load metadata to get source paths
+  const metadata = await loadMetadata(claudeDir, denoFs);
 
   // Discover installed workflow files
   const installedFiles = await discoverInstalledWorkflows(rulesDir, denoFs);
@@ -77,9 +82,16 @@ async function performUpgrade(
         continue;
       }
 
-      // Determine the source path based on filename
-      // Assume core/ for now - we can enhance this later to detect stack files
-      const remotePath = `core/${fileName}`;
+      // Get source path from metadata
+      const remotePath = getFileSource(metadata, fileName);
+
+      if (!remotePath) {
+        result.errors.push({
+          file: fileName,
+          error: "File not tracked in metadata (was it installed with an older version?)",
+        });
+        continue;
+      }
 
       // Fetch remote file
       let remoteContent: string;
@@ -173,7 +185,8 @@ try {
   const force = mis.getArg(ctx, "force") === "true" || mis.getArg(ctx, "force") === true;
   const dryRun = ctx.dry_run || false;
 
-  const rulesDir = `${ctx.project_root}/.claude/rules`;
+  const claudeDir = `${ctx.project_root}/.claude`;
+  const rulesDir = `${claudeDir}/rules`;
   const rawBaseUrl = `https://raw.githubusercontent.com/${owner}/${repo}`;
 
   if (dryRun) {
@@ -181,7 +194,7 @@ try {
   }
 
   // Perform upgrade
-  const result = await performUpgrade(rulesDir, rawBaseUrl, branch, force, dryRun);
+  const result = await performUpgrade(rulesDir, claudeDir, rawBaseUrl, branch, force, dryRun);
 
   // Print summary
   console.log("\n📊 Summary:");

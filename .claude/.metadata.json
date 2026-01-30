@@ -1,0 +1,13 @@
+{
+  "files": {
+    "tdd-workflow.md": {
+      "source": "core/tdd-workflow.md"
+    },
+    "code-style.md": {
+      "source": "stacks/python/code-style.md"
+    },
+    "testing.md": {
+      "source": "stacks/python/testing.md"
+    }
+  }
+}
