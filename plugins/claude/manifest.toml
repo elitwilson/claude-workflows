@@ -1,0 +1,50 @@
+# manifest.toml
+# -----------------------------
+# Plugin Manifest for Make It So
+# This file defines plugin metadata, permissions, CLI commands, and external dependencies.
+
+# -----------------------------
+# Plugin Metadata
+# -----------------------------
+[plugin]
+name = "claude"
+version = "0.1.0"
+description = "Manage Claude workflow files in your projects"
+registry = ""
+
+# -----------------------------
+# Global Plugin Permissions
+# These apply to all commands unless overridden individually.
+# -----------------------------
+[permissions]
+file_read = [".", "$HOME/.claude"]
+file_write = [".", "$HOME/.claude"]
+network = ["raw.githubusercontent.com", "api.github.com"]
+
+# -----------------------------
+# CLI Commands
+# Define each command with its own section.
+# -----------------------------
+[commands.add]
+description = "Add workflow files to .claude/ directory"
+script = "./add.ts"
+
+[commands.add.args.optional]
+stack = { description = "Comma-separated stacks to include (e.g., python,typescript)", arg_type = "string" }
+dry-run = { description = "Preview changes without modifying files", arg_type = "boolean" }
+
+[commands.upgrade]
+description = "Upgrade workflow files to latest version"
+script = "./upgrade.ts"
+
+[commands.upgrade.args.optional]
+force = { description = "Overwrite all files, including modified ones", arg_type = "boolean" }
+skip-modified = { description = "Skip files that have been modified", arg_type = "boolean" }
+dry-run = { description = "Preview changes without modifying files", arg_type = "boolean" }
+
+# -----------------------------
+# External Deno Dependencies
+# These are remote modules your plugin can import.
+# -----------------------------
+[deno_dependencies]
+cliffy = "https://deno.land/x/cliffy@v1.0.0-rc.4/prompt/mod.ts"

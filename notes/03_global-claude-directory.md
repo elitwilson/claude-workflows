@@ -1,7 +1,7 @@
 
 # Feature: Global .claude Directory Support
 
-**Status:** Planning\
+**Status:** Implemented (pending: duplicate detection wired in add, manual testing)\
 **Started:** 2026-01-31
 
 ---
@@ -69,15 +69,15 @@ _Existing code this feature touches_
 
 _How do we know this is working correctly and the problem is solved?_
 
-- [ ] `mis run claude:add` prompts user to choose between "Project" and "Global" scope
-- [ ] Choosing "Global" installs files to `~/.claude/rules/` regardless of current directory
-- [ ] Choosing "Project" installs files to `./.claude/rules/` (existing behavior)
-- [ ] Global installations create and update `~/.claude/.metadata.json`
-- [ ] Project installations create and update `./.claude/.metadata.json`
-- [ ] `mis run claude:upgrade` upgrades both global and project files automatically
-- [ ] Upgrade command shows separate summaries for global vs project upgrades
+- [x] `mis run claude:add` prompts user to choose between "Project" and "Global" scope
+- [x] Choosing "Global" installs files to `~/.claude/rules/` regardless of current directory
+- [x] Choosing "Project" installs files to `./.claude/rules/` (existing behavior)
+- [x] Global installations create and update `~/.claude/.metadata.json`
+- [x] Project installations create and update `./.claude/.metadata.json`
+- [x] `mis run claude:upgrade` upgrades both global and project files automatically
+- [x] Upgrade command shows separate summaries for global vs project upgrades
 - [ ] Attempting to install a duplicate file in same scope shows warning and skips
-- [ ] Works across different projects (global files accessible everywhere)
+- [ ] Works across different projects (global files accessible everywhere — needs manual verification)
 
 ---
 
@@ -131,35 +131,35 @@ _Edge cases, constraints, or gotchas to keep in mind_
 - [x] Add utility to determine target directory based on scope choice
 
 ### Phase 2: Scope Selection UI
-- [ ] Add cliffy radio button prompt for scope selection
-- [ ] Prompt appears first, before workflow selection
-- [ ] Options: "Project (.claude/)" and "Global (~/.claude/)"
-- [ ] Store selected scope for use in installation
+- [x] Add cliffy radio button prompt for scope selection
+- [x] Prompt appears first, before workflow selection
+- [x] Options: "Project (.claude/)" and "Global (~/.claude/)"
+- [x] Store selected scope for use in installation
 
 ### Phase 3: Add Command Updates
-- [ ] Update `add.ts` to accept scope parameter
-- [ ] Route to appropriate directory based on scope
-- [ ] Update metadata in correct location (global vs project)
-- [ ] Add duplicate detection within scope (warn and skip)
-- [ ] Test global installation flow
-- [ ] Test project installation flow (ensure still works)
+- [x] Update `add.ts` to accept scope parameter
+- [x] Route to appropriate directory based on scope
+- [x] Update metadata in correct location (global vs project)
+- [ ] Add duplicate detection within scope (warn and skip) — `checkDuplicateFile` exists in lib.ts but is not called in the add loop yet
+- [x] Test global installation flow
+- [x] Test project installation flow (ensure still works)
 
 ### Phase 4: Upgrade Command Updates
-- [ ] Update `upgrade.ts` to check both directories
-- [ ] Load metadata from both locations
-- [ ] Process global directory if exists
-- [ ] Process project directory if exists
-- [ ] Show separate summaries for each scope
-- [ ] Test upgrade with only global files
-- [ ] Test upgrade with only project files
-- [ ] Test upgrade with both global and project files
+- [x] Update `upgrade.ts` to check both directories
+- [x] Load metadata from both locations
+- [x] Process global directory if exists
+- [x] Process project directory if exists
+- [x] Show separate summaries for each scope
+- [x] Test upgrade with only global files
+- [x] Test upgrade with only project files
+- [x] Test upgrade with both global and project files
 
 ### Phase 5: Integration Testing
-- [ ] Test full flow: global add → global upgrade
-- [ ] Test full flow: project add → project upgrade
-- [ ] Test mixed scenario: global + project files in same user environment
-- [ ] Test duplicate detection (same file in same scope)
-- [ ] Test that duplicates across scopes are allowed
+- [x] Test full flow: global add → global upgrade
+- [x] Test full flow: project add → project upgrade
+- [x] Test mixed scenario: global + project files in same user environment
+- [x] Test duplicate detection (same file in same scope)
+- [x] Test that duplicates across scopes are allowed
 - [ ] Manual testing across multiple projects
 
 ---
@@ -208,6 +208,38 @@ This feature implements support for the "User" scope.
 - Pure functions in lib.ts (no Deno-specific APIs)
 - HomeDir passed as parameter from entry points
 - Ready for Node.js port when needed
+
+### 2026-01-31 - Phases 2–5 Implemented
+
+**What was done:**
+
+Phase 2 — Scope Selection UI:
+- Added `Select.prompt<Scope>()` (cliffy radio) as the first prompt in `add.ts`
+- Options: "Project (.claude/)" and "Global (~/.claude/)", defaulting to project
+- Selected scope flows through to `getTargetDirectory()` for all subsequent operations
+
+Phase 3 — Add Command:
+- `add.ts` routes installation to the correct directory based on scope
+- Metadata is written to the scope-appropriate `.claude/.metadata.json`
+- `checkDuplicateFile()` utility added to `lib.ts` and tested, but **not yet wired into the add loop** — files will currently overwrite silently
+
+Phase 4 — Upgrade Command:
+- Added `upgradeAll()` which runs `performUpgrade()` for both global and project scopes via `Promise.all()`
+- Entry point (`import.meta.main`) prints separate "🌐 Global" and "📁 Project" summary sections
+- Gracefully handles missing directories (returns empty result, no crash)
+
+Phase 5 — Integration Tests:
+- `scope-selection.test.ts`: `getHomeDir` error handling, scope routing, duplicate detection within/across scopes
+- `global-scope-integration.test.ts`: End-to-end flows using real temp directories — global add/upgrade, project add/upgrade, mixed scenario, same file in both scopes
+- `upgrade.test.ts`: Added "Phase 4" describe block — both-scope upgrades, missing global directory, `upgradeAll` return shape
+
+Other:
+- `manifest.toml` permissions updated: `file_read` and `file_write` now include `$HOME/.claude`
+- `deno-fs.ts` exports `getHomeDir()` for use by both `add.ts` and `upgrade.ts`
+
+**Remaining work:**
+- Wire `checkDuplicateFile` into the `add.ts` installation loop (warn and skip)
+- Manual testing across multiple projects
 
 ---
 
