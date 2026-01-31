@@ -126,7 +126,8 @@ _Edge cases, constraints, or gotchas to keep in mind_
 - [x] Implement checksum calculation for modification detection
 - [x] Implement `claude:upgrade` command with conflict detection
 - [x] Implement metadata tracking for source paths (`.claude/.metadata.json`)
-- [x] Add metadata tests (loadMetadata, saveMetadata, addFileToMetadata, getFileSource)
+- [x] Add metadata tests (loadMetadata, saveMetadata, addFileToMetadata, getFileSource, getFileChecksum)
+- [x] Implement getFileChecksum function (TDD cycle complete: RED → GREEN)
 - [x] Integrate metadata into add command
 - [x] Integrate metadata into upgrade command
 - [x] Add cache-busting for GitHub CDN
@@ -207,25 +208,77 @@ Completed upgrade command implementation:
 - `saveMetadata()`: Writes metadata as formatted JSON
 - `addFileToMetadata()`: Adds/updates file entry in metadata
 - `getFileSource()`: Retrieves source path for a file
-- All utilities have test coverage (8 tests passing)
+- `getFileChecksum()`: Retrieves checksum for a file (returns null if not tracked or no checksum)
+- All utilities have test coverage (metadata.test.ts - 5 test suites, 13 test steps passing)
 
 **Integration:**
-- `add` command: Loads metadata, tracks each installed file, saves metadata
+- `add` command: Loads metadata, tracks each installed file with source path, saves metadata
 - `upgrade` command: Loads metadata, uses source paths to fetch correct remote files
 - Handles missing metadata gracefully (shows error if file not tracked)
 
+**Metadata structure:**
+```typescript
+interface Metadata {
+  files: {
+    [fileName: string]: {
+      source: string;        // e.g., "core/tdd-workflow.md"
+      checksum?: string;     // Optional SHA-256 for modification detection
+    };
+  };
+}
+```
+
 **Test Results:**
-- ✅ All metadata unit tests passing
+- ✅ All metadata unit tests passing (13 test steps)
+  - loadMetadata: handles missing file, corrupted JSON, valid metadata
+  - saveMetadata: writes formatted JSON
+  - addFileToMetadata: adds, overwrites, handles optional checksum
+  - getFileChecksum: retrieves checksum, handles missing file/checksum
+  - getFileSource: retrieves source path, handles missing file
 - ✅ Manual testing: Installed tdd-workflow.md (core) + code-style.md + testing.md (python stack)
 - ✅ Metadata correctly tracks all 3 files with proper source paths
 - ✅ Upgrade successfully finds and checks all files (no more 404 errors)
 - ✅ Version upgrade works: 0.1.1 → 0.1.3
+
+**Implementation details:**
+- Metadata file location: `.claude/.metadata.json`
+- Checksum field is optional (supports future enhancement for modification tracking)
+- Currently checksums NOT stored at install time (computed on-demand during upgrade)
+- Graceful degradation: returns empty metadata if file missing or corrupted
+- Pure functions for metadata manipulation (no side effects in add/get operations)
 
 **Known Limitations:**
 - Files installed before metadata implementation won't be tracked (users must reinstall)
 - Integration tests (upgrade.test.ts) still need fixing
 - Modification detection not manually tested yet
 - Force flag not manually tested yet
+
+### 2026-01-31 - Implementation Session 4: Metadata Checksum Support (TDD Cycle Complete)
+
+**TDD Cycle:** RED → GREEN
+
+**Phase 1 - RED (Test Scaffolding & Implementation):**
+- Scaffolded and implemented tests for `getFileChecksum()` function
+- 3 test cases covering: file with checksum, file without checksum, untracked file
+- Tests initially failing (function not exported from metadata.ts)
+
+**Phase 2 - GREEN (Implementation):**
+- Implemented `getFileChecksum()` function in metadata.ts:82-90
+- Returns checksum string if file tracked and has checksum
+- Returns null if file not tracked or has no checksum
+- Follows same pattern as `getFileSource()` for consistency
+
+**Final Test Results:**
+- ✅ All 5 test suites passing (13 test steps)
+- ✅ getFileChecksum tests: 3/3 passing
+  - Returns checksum for tracked file that has one
+  - Returns null for tracked file without checksum
+  - Returns null for untracked file
+
+**What This Enables:**
+- Foundation for future modification detection enhancements
+- Upgrade command can check if files were modified since installation
+- Optional checksum storage supports both current (on-demand) and future (at-install) strategies
 
 ### File Structure
 

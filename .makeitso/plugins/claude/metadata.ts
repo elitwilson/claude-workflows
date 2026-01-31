@@ -11,6 +11,7 @@ export interface Metadata {
   files: {
     [fileName: string]: {
       source: string; // e.g., "core/tdd-workflow.md" or "stacks/python/code-style.md"
+      checksum?: string; // SHA-256 of content at install time, for detecting local modifications
     };
   };
 }
@@ -58,9 +59,12 @@ export async function saveMetadata(
 export function addFileToMetadata(
   metadata: Metadata,
   fileName: string,
-  sourcePath: string
+  sourcePath: string,
+  checksum?: string
 ): void {
-  metadata.files[fileName] = { source: sourcePath };
+  metadata.files[fileName] = checksum
+    ? { source: sourcePath, checksum }
+    : { source: sourcePath };
 }
 
 /**
@@ -72,4 +76,15 @@ export function getFileSource(
   fileName: string
 ): string | null {
   return metadata.files[fileName]?.source ?? null;
+}
+
+/**
+ * Gets the checksum for a tracked file
+ * Returns null if file is not tracked or has no checksum
+ */
+export function getFileChecksum(
+  metadata: Metadata,
+  fileName: string
+): string | null {
+  return metadata.files[fileName]?.checksum ?? null;
 }

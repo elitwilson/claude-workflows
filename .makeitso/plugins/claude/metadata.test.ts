@@ -1,10 +1,11 @@
 import { describe, it } from "https://deno.land/std@0.224.0/testing/bdd.ts";
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assertEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   loadMetadata,
   saveMetadata,
   addFileToMetadata,
   getFileSource,
+  getFileChecksum,
   type Metadata,
   type FileSystem,
 } from "./metadata.ts";
@@ -108,6 +109,52 @@ describe("addFileToMetadata", () => {
     addFileToMetadata(metadata, "tdd-workflow.md", "stacks/python/tdd-workflow.md");
 
     assertEquals(metadata.files["tdd-workflow.md"].source, "stacks/python/tdd-workflow.md");
+  });
+
+  it("stores checksum when provided", () => {
+    const metadata: Metadata = { files: {} };
+
+    addFileToMetadata(metadata, "tdd-workflow.md", "core/tdd-workflow.md", "abc123");
+
+    assertEquals(metadata.files["tdd-workflow.md"].source, "core/tdd-workflow.md");
+    assertEquals(metadata.files["tdd-workflow.md"].checksum, "abc123");
+  });
+
+  it("stores entry without checksum when not provided", () => {
+    const metadata: Metadata = { files: {} };
+
+    addFileToMetadata(metadata, "tdd-workflow.md", "core/tdd-workflow.md");
+
+    assertEquals(metadata.files["tdd-workflow.md"].source, "core/tdd-workflow.md");
+    assertEquals(metadata.files["tdd-workflow.md"].checksum, undefined);
+  });
+});
+
+describe("getFileChecksum", () => {
+  it("returns checksum for tracked file that has one", () => {
+    const metadata: Metadata = {
+      files: {
+        "tdd-workflow.md": { source: "core/tdd-workflow.md", checksum: "abc123" },
+      },
+    };
+
+    assertEquals(getFileChecksum(metadata, "tdd-workflow.md"), "abc123");
+  });
+
+  it("returns null for tracked file without checksum", () => {
+    const metadata: Metadata = {
+      files: {
+        "tdd-workflow.md": { source: "core/tdd-workflow.md" },
+      },
+    };
+
+    assertEquals(getFileChecksum(metadata, "tdd-workflow.md"), null);
+  });
+
+  it("returns null for untracked file", () => {
+    const metadata: Metadata = { files: {} };
+
+    assertEquals(getFileChecksum(metadata, "unknown.md"), null);
   });
 });
 

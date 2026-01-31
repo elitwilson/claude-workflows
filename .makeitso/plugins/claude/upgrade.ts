@@ -7,6 +7,7 @@ import {
   parseFrontmatter,
   calculateChecksum,
   discoverInstalledWorkflows,
+  type FileSystem,
 } from "./lib.ts";
 import { denoFs } from "./deno-fs.ts";
 import { loadMetadata, getFileSource } from "./metadata.ts";
@@ -21,7 +22,7 @@ interface UpgradeResult {
  * Compares two semver version strings
  * Returns true if remoteVersion > localVersion
  */
-function isNewerVersion(localVersion: string, remoteVersion: string): boolean {
+export function isNewerVersion(localVersion: string, remoteVersion: string): boolean {
   const parseVersion = (v: string) => {
     const parts = v.split(".").map(n => parseInt(n, 10));
     return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0 };
@@ -38,13 +39,14 @@ function isNewerVersion(localVersion: string, remoteVersion: string): boolean {
 /**
  * Performs the upgrade operation
  */
-async function performUpgrade(
+export async function performUpgrade(
   rulesDir: string,
   claudeDir: string,
   repoUrl: string,
   branch: string,
   force: boolean,
-  dryRun: boolean
+  dryRun: boolean,
+  fs: FileSystem = denoFs
 ): Promise<UpgradeResult> {
   const result: UpgradeResult = {
     upgraded: [],
@@ -53,10 +55,10 @@ async function performUpgrade(
   };
 
   // Load metadata to get source paths
-  const metadata = await loadMetadata(claudeDir, denoFs);
+  const metadata = await loadMetadata(claudeDir, fs);
 
   // Discover installed workflow files
-  const installedFiles = await discoverInstalledWorkflows(rulesDir, denoFs);
+  const installedFiles = await discoverInstalledWorkflows(rulesDir, fs);
 
   if (installedFiles.length === 0) {
     console.log("No workflow files found in .claude/rules/");
@@ -71,7 +73,7 @@ async function performUpgrade(
 
     try {
       // Read local file
-      const localContent = await denoFs.readFile(filePath);
+      const localContent = await fs.readFile(filePath);
       const localMeta = parseFrontmatter(localContent);
 
       if (!localMeta) {
@@ -155,7 +157,7 @@ async function performUpgrade(
       if (dryRun) {
         console.log(`Would upgrade: ${fileName} (v${localMeta.version} → v${remoteMeta.version})${isModified ? " [modified]" : ""}`);
       } else {
-        await writeWorkflowFile(filePath, remoteContent, false, denoFs, () => {});
+        await writeWorkflowFile(filePath, remoteContent, false, fs, () => {});
         console.log(`✅ Upgraded: ${fileName} (v${localMeta.version} → v${remoteMeta.version})${isModified ? " [overwrote modifications]" : ""}`);
       }
 

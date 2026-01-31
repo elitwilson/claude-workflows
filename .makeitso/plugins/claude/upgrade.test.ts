@@ -1,62 +1,33 @@
-import { describe, it } from "https://deno.land/std@0.224.0/testing/bdd.ts";
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { describe, it, beforeEach, afterEach } from "https://deno.land/std@0.224.0/testing/bdd.ts";
+import { assertEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
-  parseFrontmatter,
   calculateChecksum,
   type FileSystem,
 } from "./lib.ts";
+import { performUpgrade, isNewerVersion } from "./upgrade.ts";
 
 /**
  * Upgrade workflow integration tests
  * These test the orchestration logic for the upgrade command
  */
 
-interface UpgradeResult {
-  upgraded: string[];
-  skipped: Array<{ file: string; reason: string }>;
-  errors: Array<{ file: string; error: string }>;
-}
-
-/**
- * Mock function to simulate upgrade logic
- * This will be replaced with actual implementation
- */
-function performUpgrade(
-  _rulesDir: string,
-  _repoUrl: string,
-  _branch: string,
-  _force: boolean,
-  _dryRun: boolean,
-  _fs: FileSystem
-): Promise<UpgradeResult> {
-  // Placeholder - will be implemented in GREEN phase
-  throw new Error("Not implemented");
-}
-
 describe("upgrade workflow integration", () => {
-  it("detects when remote version is newer than local version", async () => {
-    const localContent = `---
-version: 0.1.0
-updated: 2026-01-30
----
-# Content`;
+  let originalFetch: typeof globalThis.fetch;
 
-    const remoteContent = `---
-version: 0.2.0
-updated: 2026-01-31
----
-# Content`;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
 
-    const localMeta = parseFrontmatter(localContent);
-    const remoteMeta = parseFrontmatter(remoteContent);
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
 
-    assertEquals(localMeta?.version, "0.1.0");
-    assertEquals(remoteMeta?.version, "0.2.0");
-
-    // Version comparison should detect remote is newer
-    // This will use semver comparison in implementation
-    const isNewer = remoteMeta!.version > localMeta!.version;
-    assertEquals(isNewer, true);
+  it("detects when remote version is newer than local version", () => {
+    assertEquals(isNewerVersion("0.1.0", "0.2.0"), true);
+    assertEquals(isNewerVersion("0.2.0", "0.1.0"), false);
+    assertEquals(isNewerVersion("0.1.0", "0.1.0"), false);
+    assertEquals(isNewerVersion("0.9.0", "0.10.0"), true);
+    assertEquals(isNewerVersion("1.0.0", "2.0.0"), true);
   });
 
   it("skips files that are already up to date", async () => {
@@ -66,20 +37,44 @@ updated: 2026-01-30
 ---
 # Content`;
 
-    const remoteContent = `---
-version: 0.2.0
-updated: 2026-01-30
----
-# Content`;
+    // Remote returns same version — fetch will be called but version check skips upgrade
+    globalThis.fetch = async () => {
+      return new Response(localContent, { status: 200 });
+    };
 
-    const localMeta = parseFrontmatter(localContent);
-    const remoteMeta = parseFrontmatter(remoteContent);
+    const mockFs: FileSystem = {
+      mkdir: async () => {},
+      exists: async (path: string) => path === ".claude/rules" || path === ".claude/.metadata.json",
+      writeFile: async () => {},
+      readFile: async (path: string) => {
+        if (path === ".claude/.metadata.json") {
+          return JSON.stringify({ files: { "tdd-workflow.md": { source: "core/tdd-workflow.md" } } });
+        }
+        if (path === ".claude/rules/tdd-workflow.md") {
+          return localContent;
+        }
+        return "";
+      },
+      readDir: async (path: string) => {
+        if (path === ".claude/rules") {
+          return [{ name: "tdd-workflow.md", isFile: true, isDirectory: false }];
+        }
+        return [];
+      },
+    };
 
-    assertEquals(localMeta?.version, remoteMeta?.version);
+    const result = await performUpgrade(
+      ".claude/rules",
+      ".claude",
+      "https://raw.githubusercontent.com/test/repo",
+      "main",
+      false,
+      false,
+      mockFs
+    );
 
-    // Should not upgrade when versions match and content unchanged
-    const shouldUpgrade = localMeta!.version !== remoteMeta!.version;
-    assertEquals(shouldUpgrade, false);
+    assertEquals(result.skipped.length, 1);
+    assertEquals(result.skipped[0].reason.includes("Already up to date"), true);
   });
 
   it("detects local modifications by checksum comparison", async () => {
@@ -102,33 +97,48 @@ updated: 2026-01-30
   });
 
   it("skips modified files without --force flag", async () => {
-    const mockFs: FileSystem = {
-      mkdir: async () => {},
-      exists: async () => true,
-      writeFile: async () => {},
-      readFile: async (path: string) => {
-        if (path === ".claude/rules/tdd-workflow.md") {
-          return `---
+    // Local file was modified after install — checksum won't match the stored one
+    const localContent = `---
 version: 0.1.0
 updated: 2026-01-30
 ---
 # User modified this file`;
+
+    const remoteContent = `---
+version: 0.2.0
+updated: 2026-01-31
+---
+# Updated content`;
+
+    globalThis.fetch = async () => {
+      return new Response(remoteContent, { status: 200 });
+    };
+
+    const mockFs: FileSystem = {
+      mkdir: async () => {},
+      exists: async (path: string) => path === ".claude/rules" || path === ".claude/.metadata.json",
+      writeFile: async () => {},
+      readFile: async (path: string) => {
+        if (path === ".claude/.metadata.json") {
+          // Stored checksum is from original install — does NOT match localContent
+          return JSON.stringify({ files: { "tdd-workflow.md": { source: "core/tdd-workflow.md", checksum: "b7c07757233df2f01a909b4d5e6c926ac190f2cf45ee313a6f1368adfb3919eb" } } });
+        }
+        if (path === ".claude/rules/tdd-workflow.md") {
+          return localContent;
         }
         return "";
       },
       readDir: async (path: string) => {
         if (path === ".claude/rules") {
-          return [
-            { name: "tdd-workflow.md", isFile: true, isDirectory: false },
-          ];
+          return [{ name: "tdd-workflow.md", isFile: true, isDirectory: false }];
         }
         return [];
       },
     };
 
-    // Mock: Remote has v0.2.0, local has modified v0.1.0, force=false
     const result = await performUpgrade(
       ".claude/rules",
+      ".claude",
       "https://raw.githubusercontent.com/test/repo",
       "main",
       false, // force=false
@@ -136,40 +146,55 @@ updated: 2026-01-30
       mockFs
     );
 
-    // Should skip modified file
     assertEquals(result.skipped.length, 1);
-    assertEquals(result.skipped[0].file.includes("tdd-workflow.md"), true);
-    assertEquals(result.skipped[0].reason.includes("modified"), true);
+    assertEquals(result.skipped[0].reason.includes("Modified locally"), true);
   });
 
   it("updates modified files with --force flag", async () => {
-    const mockFs: FileSystem = {
-      mkdir: async () => {},
-      exists: async () => true,
-      writeFile: async () => {},
-      readFile: async (path: string) => {
-        if (path === ".claude/rules/tdd-workflow.md") {
-          return `---
+    const localContent = `---
 version: 0.1.0
 updated: 2026-01-30
 ---
 # User modified this file`;
+
+    const remoteContent = `---
+version: 0.2.0
+updated: 2026-01-31
+---
+# Updated content`;
+
+    globalThis.fetch = async () => {
+      return new Response(remoteContent, { status: 200 });
+    };
+
+    const writtenFiles = new Map<string, string>();
+
+    const mockFs: FileSystem = {
+      mkdir: async () => {},
+      exists: async (path: string) => path === ".claude/rules" || path === ".claude/.metadata.json",
+      writeFile: async (path: string, content: string) => {
+        writtenFiles.set(path, content);
+      },
+      readFile: async (path: string) => {
+        if (path === ".claude/.metadata.json") {
+          return JSON.stringify({ files: { "tdd-workflow.md": { source: "core/tdd-workflow.md", checksum: "b7c07757233df2f01a909b4d5e6c926ac190f2cf45ee313a6f1368adfb3919eb" } } });
+        }
+        if (path === ".claude/rules/tdd-workflow.md") {
+          return localContent;
         }
         return "";
       },
       readDir: async (path: string) => {
         if (path === ".claude/rules") {
-          return [
-            { name: "tdd-workflow.md", isFile: true, isDirectory: false },
-          ];
+          return [{ name: "tdd-workflow.md", isFile: true, isDirectory: false }];
         }
         return [];
       },
     };
 
-    // Mock: Remote has v0.2.0, local has modified v0.1.0, force=true
     const result = await performUpgrade(
       ".claude/rules",
+      ".claude",
       "https://raw.githubusercontent.com/test/repo",
       "main",
       true, // force=true
@@ -177,40 +202,59 @@ updated: 2026-01-30
       mockFs
     );
 
-    // Should upgrade despite modification
     assertEquals(result.upgraded.length, 1);
-    assertEquals(result.upgraded[0].includes("tdd-workflow.md"), true);
+    assertEquals(result.upgraded[0], "tdd-workflow.md");
+    assertEquals(writtenFiles.get(".claude/rules/tdd-workflow.md"), remoteContent);
   });
 
-  it("updates unmodified files with newer versions", async () => {
-    const mockFs: FileSystem = {
-      mkdir: async () => {},
-      exists: async () => true,
-      writeFile: async () => {},
-      readFile: async (path: string) => {
-        if (path === ".claude/rules/tdd-workflow.md") {
-          // Unmodified v0.1.0
-          return `---
+  it("upgrades without checking modification when no stored checksum exists", async () => {
+    // Metadata has no checksum — file was installed before checksum tracking existed.
+    // Should upgrade without blocking, same as isModified=false.
+    const localContent = `---
 version: 0.1.0
 updated: 2026-01-30
 ---
-# Original content`;
+# Some content`;
+
+    const remoteContent = `---
+version: 0.2.0
+updated: 2026-01-31
+---
+# Updated content`;
+
+    globalThis.fetch = async () => {
+      return new Response(remoteContent, { status: 200 });
+    };
+
+    const writtenFiles = new Map<string, string>();
+
+    const mockFs: FileSystem = {
+      mkdir: async () => {},
+      exists: async (path: string) => path === ".claude/rules" || path === ".claude/.metadata.json",
+      writeFile: async (path: string, content: string) => {
+        writtenFiles.set(path, content);
+      },
+      readFile: async (path: string) => {
+        if (path === ".claude/.metadata.json") {
+          // No checksum field — legacy metadata
+          return JSON.stringify({ files: { "tdd-workflow.md": { source: "core/tdd-workflow.md" } } });
+        }
+        if (path === ".claude/rules/tdd-workflow.md") {
+          return localContent;
         }
         return "";
       },
       readDir: async (path: string) => {
         if (path === ".claude/rules") {
-          return [
-            { name: "tdd-workflow.md", isFile: true, isDirectory: false },
-          ];
+          return [{ name: "tdd-workflow.md", isFile: true, isDirectory: false }];
         }
         return [];
       },
     };
 
-    // Mock: Remote has v0.2.0, local has unmodified v0.1.0
     const result = await performUpgrade(
       ".claude/rules",
+      ".claude",
       "https://raw.githubusercontent.com/test/repo",
       "main",
       false,
@@ -218,15 +262,82 @@ updated: 2026-01-30
       mockFs
     );
 
-    // Should upgrade unmodified file
     assertEquals(result.upgraded.length, 1);
-    assertEquals(result.upgraded[0].includes("tdd-workflow.md"), true);
+    assertEquals(result.upgraded[0], "tdd-workflow.md");
+    assertEquals(writtenFiles.get(".claude/rules/tdd-workflow.md"), remoteContent);
+  });
+
+  it("updates unmodified files with newer versions", async () => {
+    const localContent = `---
+version: 0.1.0
+updated: 2026-01-30
+---
+# Original content`;
+
+    const remoteContent = `---
+version: 0.2.0
+updated: 2026-01-31
+---
+# Updated content`;
+
+    globalThis.fetch = async (url: string | URL | Request) => {
+      const urlStr = url.toString();
+      // Original version fetch returns same content as local (unmodified)
+      if (urlStr.includes("/0.1.0/")) {
+        return new Response(localContent, { status: 200 });
+      }
+      return new Response(remoteContent, { status: 200 });
+    };
+
+    const writtenFiles = new Map<string, string>();
+
+    const mockFs: FileSystem = {
+      mkdir: async () => {},
+      exists: async (path: string) => path === ".claude/rules" || path === ".claude/.metadata.json",
+      writeFile: async (path: string, content: string) => {
+        writtenFiles.set(path, content);
+      },
+      readFile: async (path: string) => {
+        if (path === ".claude/.metadata.json") {
+          return JSON.stringify({ files: { "tdd-workflow.md": { source: "core/tdd-workflow.md" } } });
+        }
+        if (path === ".claude/rules/tdd-workflow.md") {
+          return localContent;
+        }
+        return "";
+      },
+      readDir: async (path: string) => {
+        if (path === ".claude/rules") {
+          return [{ name: "tdd-workflow.md", isFile: true, isDirectory: false }];
+        }
+        return [];
+      },
+    };
+
+    const result = await performUpgrade(
+      ".claude/rules",
+      ".claude",
+      "https://raw.githubusercontent.com/test/repo",
+      "main",
+      false,
+      false,
+      mockFs
+    );
+
+    assertEquals(result.upgraded.length, 1);
+    assertEquals(result.upgraded[0], "tdd-workflow.md");
+    assertEquals(writtenFiles.get(".claude/rules/tdd-workflow.md"), remoteContent);
   });
 
   it("reports summary of upgraded, skipped, and error files", async () => {
+    // No files installed — result should have empty arrays
+    globalThis.fetch = async () => {
+      return new Response("", { status: 200 });
+    };
+
     const mockFs: FileSystem = {
       mkdir: async () => {},
-      exists: async () => true,
+      exists: async () => false,
       writeFile: async () => {},
       readFile: async () => "",
       readDir: async () => [],
@@ -234,6 +345,7 @@ updated: 2026-01-30
 
     const result = await performUpgrade(
       ".claude/rules",
+      ".claude",
       "https://raw.githubusercontent.com/test/repo",
       "main",
       false,
@@ -241,44 +353,60 @@ updated: 2026-01-30
       mockFs
     );
 
-    // Result should have all three arrays
     assertEquals(Array.isArray(result.upgraded), true);
     assertEquals(Array.isArray(result.skipped), true);
     assertEquals(Array.isArray(result.errors), true);
   });
 
   it("supports dry-run mode for upgrade preview", async () => {
-    const writtenFiles: string[] = [];
-
-    const mockFs: FileSystem = {
-      mkdir: async () => {},
-      exists: async () => true,
-      writeFile: async (path: string) => {
-        writtenFiles.push(path);
-      },
-      readFile: async (path: string) => {
-        if (path === ".claude/rules/tdd-workflow.md") {
-          return `---
+    const localContent = `---
 version: 0.1.0
 updated: 2026-01-30
 ---
 # Content`;
+
+    const remoteContent = `---
+version: 0.2.0
+updated: 2026-01-31
+---
+# Updated content`;
+
+    globalThis.fetch = async (url: string | URL | Request) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/0.1.0/")) {
+        return new Response(localContent, { status: 200 });
+      }
+      return new Response(remoteContent, { status: 200 });
+    };
+
+    const writtenFiles: string[] = [];
+
+    const mockFs: FileSystem = {
+      mkdir: async () => {},
+      exists: async (path: string) => path === ".claude/rules" || path === ".claude/.metadata.json",
+      writeFile: async (path: string) => {
+        writtenFiles.push(path);
+      },
+      readFile: async (path: string) => {
+        if (path === ".claude/.metadata.json") {
+          return JSON.stringify({ files: { "tdd-workflow.md": { source: "core/tdd-workflow.md" } } });
+        }
+        if (path === ".claude/rules/tdd-workflow.md") {
+          return localContent;
         }
         return "";
       },
       readDir: async (path: string) => {
         if (path === ".claude/rules") {
-          return [
-            { name: "tdd-workflow.md", isFile: true, isDirectory: false },
-          ];
+          return [{ name: "tdd-workflow.md", isFile: true, isDirectory: false }];
         }
         return [];
       },
     };
 
-    // Mock: Remote has v0.2.0, dry-run=true
     const result = await performUpgrade(
       ".claude/rules",
+      ".claude",
       "https://raw.githubusercontent.com/test/repo",
       "main",
       false,
@@ -286,8 +414,8 @@ updated: 2026-01-30
       mockFs
     );
 
-    // Should report what would be upgraded but not write files
+    // Dry-run: file reported as upgraded but nothing written
     assertEquals(writtenFiles.length, 0);
-    assertEquals(result.upgraded.length >= 0, true);
+    assertEquals(result.upgraded.length, 1);
   });
 });

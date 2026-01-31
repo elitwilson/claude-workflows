@@ -25,10 +25,8 @@ describe("fetchWorkflowFile", () => {
     const mockContent = "---\nversion: 0.1.0\n---\n# Test File";
 
     globalThis.fetch = async (url: string | URL | Request) => {
-      assertEquals(
-        url.toString(),
-        "https://raw.githubusercontent.com/test/repo/main/path/to/file.md"
-      );
+      const urlStr = url.toString();
+      assertEquals(urlStr.startsWith("https://raw.githubusercontent.com/test/repo/main/path/to/file.md?t="), true);
 
       return new Response(mockContent, { status: 200 });
     };
