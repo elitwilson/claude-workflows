@@ -25,6 +25,11 @@ export interface FileSystem {
 export type LogFn = (message: string) => void;
 
 /**
+ * Scope type for directory resolution
+ */
+export type Scope = "project" | "global";
+
+/**
  * Frontmatter metadata structure
  */
 export interface Frontmatter {
@@ -180,4 +185,40 @@ export async function discoverInstalledWorkflows(
     .map(entry => `${rulesDir}/${entry.name}`);
 
   return mdFiles;
+}
+
+/**
+ * Expands home directory path (~) to the actual home directory
+ * Examples:
+ *   "~" -> "/Users/username"
+ *   "~/.claude" -> "/Users/username/.claude"
+ *   "/absolute/path" -> "/absolute/path" (unchanged)
+ */
+export function resolveHomePath(path: string, homeDir: string): string {
+  if (path === "~") {
+    return homeDir;
+  }
+
+  if (path.startsWith("~/")) {
+    return homeDir + path.slice(1);
+  }
+
+  return path;
+}
+
+/**
+ * Determines the target .claude directory based on installation scope
+ * - project scope: {projectRoot}/.claude
+ * - global scope: {homeDir}/.claude
+ */
+export function getTargetDirectory(
+  scope: Scope,
+  projectRoot: string,
+  homeDir: string
+): string {
+  if (scope === "project") {
+    return `${projectRoot}/.claude`;
+  }
+
+  return `${homeDir}/.claude`;
 }
