@@ -7,6 +7,20 @@
 import type { FileSystem, DirEntry } from "./lib.ts";
 
 /**
+ * Gets the home directory from the HOME environment variable
+ * Throws an error if HOME is not set
+ */
+export function getHomeDir(): string {
+  const home = Deno.env.get("HOME");
+
+  if (!home) {
+    throw new Error("HOME environment variable is not set");
+  }
+
+  return home;
+}
+
+/**
  * Deno implementation of FileSystem interface
  */
 export const denoFs: FileSystem = {

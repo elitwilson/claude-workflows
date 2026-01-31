@@ -222,3 +222,16 @@ export function getTargetDirectory(
 
   return `${homeDir}/.claude`;
 }
+
+/**
+ * Checks if a file already exists in the target directory
+ * Used for duplicate detection within the same scope
+ */
+export async function checkDuplicateFile(
+  fileName: string,
+  rulesDir: string,
+  fs: FileSystem
+): Promise<boolean> {
+  const filePath = `${rulesDir}/${fileName}`;
+  return await fs.exists(filePath);
+}

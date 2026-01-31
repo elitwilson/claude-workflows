@@ -1,7 +1,7 @@
 // Import shared types and utilities from Make It So
 import type { PluginContext } from "../../mis-types.d.ts";
 import { mis } from "../../mis-plugin-api.ts";
-import { Checkbox } from "https://deno.land/x/cliffy@v1.0.0-rc.4/prompt/mod.ts";
+import { Checkbox, Select } from "https://deno.land/x/cliffy@v1.0.0-rc.4/prompt/mod.ts";
 import {
   discoverCoreWorkflows,
   discoverStacks,
@@ -11,8 +11,10 @@ import {
   fetchWorkflowFile,
   ensureDirectory,
   writeWorkflowFile,
+  getTargetDirectory,
+  type Scope,
 } from "./lib.ts";
-import { denoFs } from "./deno-fs.ts";
+import { denoFs, getHomeDir } from "./deno-fs.ts";
 import {
   loadMetadata,
   saveMetadata,
@@ -23,6 +25,18 @@ try {
   const ctx: PluginContext = await mis.loadContext();
 
   console.log("🪄 Add Claude Workflows\n");
+
+  // Scope selection
+  const scope = await Select.prompt<Scope>({
+    message: "Install to:",
+    options: [
+      { name: "Project (.claude/)", value: "project" },
+      { name: "Global (~/.claude/)", value: "global" },
+    ],
+    default: "project",
+  });
+
+  console.log(`\nInstalling to ${scope} scope\n`);
   console.log("Discovering available workflows...\n");
 
   // Extract repo owner and name from config
@@ -65,11 +79,17 @@ try {
 
   // Summary
   const allFiles = [...selectedCore, ...stackFiles];
+
+  // Get home directory and determine target directory based on scope
+  const homeDir = getHomeDir();
+  const claudeDir = getTargetDirectory(scope, ctx.project_root, homeDir);
+  const rulesDir = `${claudeDir}/rules`;
+
   console.log("📋 Summary:");
   console.log(`  Total files to install: ${allFiles.length}`);
   console.log(`  Core workflows: ${selectedCore.length}`);
   console.log(`  Stack workflows: ${stackFiles.length}`);
-  console.log(`  Target directory: ${ctx.project_root}/.claude/rules/`);
+  console.log(`  Target directory: ${rulesDir}`);
 
   // Get dry-run flag from context
   const dryRun = ctx.dry_run || false;
@@ -79,10 +99,6 @@ try {
   } else {
     console.log("\n📦 Installing workflow files...\n");
   }
-
-  // Create directory structure
-  const claudeDir = `${ctx.project_root}/.claude`;
-  const rulesDir = `${claudeDir}/rules`;
 
   await ensureDirectory(claudeDir, dryRun, denoFs, console.log);
   await ensureDirectory(rulesDir, dryRun, denoFs, console.log);
@@ -130,6 +146,8 @@ try {
 
   mis.outputSuccess({
     message: dryRun ? "Add workflow complete (dry-run)" : "Add workflow complete",
+    scope: scope,
+    target_directory: rulesDir,
     selected_core: selectedCore,
     selected_stacks: selectedStackNames,
     total_files: allFiles.length,

@@ -9,8 +9,8 @@ import {
   discoverInstalledWorkflows,
   type FileSystem,
 } from "./lib.ts";
-import { denoFs } from "./deno-fs.ts";
-import { loadMetadata, getFileSource } from "./metadata.ts";
+import { denoFs, getHomeDir } from "./deno-fs.ts";
+import { loadMetadata, getFileSource, getFileChecksum } from "./metadata.ts";
 
 interface UpgradeResult {
   upgraded: string[];
@@ -126,22 +126,12 @@ export async function performUpgrade(
         continue;
       }
 
-      // Check for local modifications
-      // Fetch the same version from GitHub to compare
+      // Check for local modifications using stored checksum from metadata
       let isModified = false;
-      try {
-        const originalContent = await fetchWorkflowFile(repoUrl, branch, remotePath);
-        const originalMeta = parseFrontmatter(originalContent);
-
-        // Only check for modifications if we can find the same version remotely
-        if (originalMeta && originalMeta.version === localMeta.version) {
-          const localChecksum = await calculateChecksum(localContent);
-          const originalChecksum = await calculateChecksum(originalContent);
-          isModified = localChecksum !== originalChecksum;
-        }
-      } catch {
-        // If we can't fetch the original, assume it's not modified
-        isModified = false;
+      const storedChecksum = getFileChecksum(metadata, fileName);
+      if (storedChecksum) {
+        const localChecksum = await calculateChecksum(localContent);
+        isModified = localChecksum !== storedChecksum;
       }
 
       // Skip modified files unless --force
@@ -173,58 +163,120 @@ export async function performUpgrade(
   return result;
 }
 
-try {
-  const ctx: PluginContext = await mis.loadContext();
+/**
+ * Upgrades workflow files in both global and project scopes independently.
+ * Returns separate results for each scope.
+ */
+export async function upgradeAll(
+  projectRoot: string,
+  homeDir: string,
+  repoUrl: string,
+  branch: string,
+  force: boolean,
+  dryRun: boolean,
+  fs: FileSystem = denoFs
+): Promise<{ global: UpgradeResult; project: UpgradeResult }> {
+  const globalClaudeDir = `${homeDir}/.claude`;
+  const globalRulesDir = `${globalClaudeDir}/rules`;
 
-  console.log("🔄 Upgrade Claude Workflows\n");
+  const projectClaudeDir = `${projectRoot}/.claude`;
+  const projectRulesDir = `${projectClaudeDir}/rules`;
 
-  // Extract repo config
-  const owner = mis.getConfig(ctx, "repo_owner", "elitwilson");
-  const repo = mis.getConfig(ctx, "repo_name", "claude-workflows");
-  const branch = mis.getConfig(ctx, "default_branch", "main");
+  const [global, project] = await Promise.all([
+    performUpgrade(globalRulesDir, globalClaudeDir, repoUrl, branch, force, dryRun, fs),
+    performUpgrade(projectRulesDir, projectClaudeDir, repoUrl, branch, force, dryRun, fs),
+  ]);
 
-  // Get flags
-  const force = mis.getArg(ctx, "force") === "true" || mis.getArg(ctx, "force") === true;
-  const dryRun = ctx.dry_run || false;
+  return { global, project };
+}
 
-  const claudeDir = `${ctx.project_root}/.claude`;
-  const rulesDir = `${claudeDir}/rules`;
-  const rawBaseUrl = `https://raw.githubusercontent.com/${owner}/${repo}`;
+if (import.meta.main) {
+  try {
+    const ctx: PluginContext = await mis.loadContext();
 
-  if (dryRun) {
-    console.log("🔍 Dry-run mode: No files will be modified\n");
-  }
+    console.log("🔄 Upgrade Claude Workflows\n");
 
-  // Perform upgrade
-  const result = await performUpgrade(rulesDir, claudeDir, rawBaseUrl, branch, force, dryRun);
+    // Extract repo config
+    const owner = mis.getConfig(ctx, "repo_owner", "elitwilson");
+    const repo = mis.getConfig(ctx, "repo_name", "claude-workflows");
+    const branch = mis.getConfig(ctx, "default_branch", "main");
 
-  // Print summary
-  console.log("\n📊 Summary:");
-  console.log(`   Upgraded: ${result.upgraded.length}`);
-  console.log(`   Skipped: ${result.skipped.length}`);
-  console.log(`   Errors: ${result.errors.length}`);
+    // Get flags
+    const force = mis.getArg(ctx, "force") === "true" || mis.getArg(ctx, "force") === true;
+    const dryRun = ctx.dry_run || false;
 
-  if (result.skipped.length > 0) {
-    console.log("\n⏭️  Skipped files:");
-    result.skipped.forEach(({ file, reason }) => {
-      console.log(`   - ${file}: ${reason}`);
+    const homeDir = getHomeDir();
+    const rawBaseUrl = `https://raw.githubusercontent.com/${owner}/${repo}`;
+
+    if (dryRun) {
+      console.log("🔍 Dry-run mode: No files will be modified\n");
+    }
+
+    // Upgrade both global and project scopes
+    const { global: globalResult, project: projectResult } = await upgradeAll(
+      ctx.project_root,
+      homeDir,
+      rawBaseUrl,
+      branch,
+      force,
+      dryRun
+    );
+
+    // Print global summary
+    console.log("\n🌐 Global (~/.claude/) Summary:");
+    console.log(`   Upgraded: ${globalResult.upgraded.length}`);
+    console.log(`   Skipped: ${globalResult.skipped.length}`);
+    console.log(`   Errors: ${globalResult.errors.length}`);
+
+    if (globalResult.skipped.length > 0) {
+      console.log("\n⏭️  Skipped:");
+      globalResult.skipped.forEach(({ file, reason }) => {
+        console.log(`   - ${file}: ${reason}`);
+      });
+    }
+
+    if (globalResult.errors.length > 0) {
+      console.log("\n❌ Errors:");
+      globalResult.errors.forEach(({ file, error }) => {
+        console.log(`   - ${file}: ${error}`);
+      });
+    }
+
+    // Print project summary
+    console.log("\n📁 Project (.claude/) Summary:");
+    console.log(`   Upgraded: ${projectResult.upgraded.length}`);
+    console.log(`   Skipped: ${projectResult.skipped.length}`);
+    console.log(`   Errors: ${projectResult.errors.length}`);
+
+    if (projectResult.skipped.length > 0) {
+      console.log("\n⏭️  Skipped:");
+      projectResult.skipped.forEach(({ file, reason }) => {
+        console.log(`   - ${file}: ${reason}`);
+      });
+    }
+
+    if (projectResult.errors.length > 0) {
+      console.log("\n❌ Errors:");
+      projectResult.errors.forEach(({ file, error }) => {
+        console.log(`   - ${file}: ${error}`);
+      });
+    }
+
+    mis.outputSuccess({
+      message: dryRun ? "Upgrade preview complete" : "Upgrade complete",
+      global: {
+        upgraded: globalResult.upgraded.length,
+        skipped: globalResult.skipped.length,
+        errors: globalResult.errors.length,
+      },
+      project: {
+        upgraded: projectResult.upgraded.length,
+        skipped: projectResult.skipped.length,
+        errors: projectResult.errors.length,
+      },
+      dry_run: dryRun,
     });
+  } catch (error) {
+    mis.outputError(error instanceof Error ? error.message : String(error));
   }
-
-  if (result.errors.length > 0) {
-    console.log("\n❌ Errors:");
-    result.errors.forEach(({ file, error }) => {
-      console.log(`   - ${file}: ${error}`);
-    });
-  }
-
-  mis.outputSuccess({
-    message: dryRun ? "Upgrade preview complete" : "Upgrade complete",
-    upgraded: result.upgraded.length,
-    skipped: result.skipped.length,
-    errors: result.errors.length,
-    dry_run: dryRun,
-  });
-} catch (error) {
-  mis.outputError(error instanceof Error ? error.message : String(error));
 }

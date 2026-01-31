@@ -17,8 +17,8 @@ registry = ""
 # These apply to all commands unless overridden individually.
 # -----------------------------
 [permissions]
-file_read = ["."]
-file_write = ["."]
+file_read = [".", "$HOME/.claude"]
+file_write = [".", "$HOME/.claude"]
 network = ["raw.githubusercontent.com", "api.github.com"]
 
 # -----------------------------

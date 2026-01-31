@@ -419,3 +419,152 @@ updated: 2026-01-31
     assertEquals(result.upgraded.length, 1);
   });
 });
+
+describe("Phase 4: Upgrade both scopes", () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("upgrades files in both global and project directories independently", async () => {
+    const localContent = `---
+version: 0.1.0
+updated: 2026-01-30
+---
+# Content`;
+
+    const remoteContent = `---
+version: 0.2.0
+updated: 2026-01-31
+---
+# Updated content`;
+
+    globalThis.fetch = async (url: string | URL | Request) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/0.1.0/")) {
+        return new Response(localContent, { status: 200 });
+      }
+      return new Response(remoteContent, { status: 200 });
+    };
+
+    const writtenFiles = new Map<string, string>();
+
+    const mockFs: FileSystem = {
+      mkdir: async () => {},
+      exists: async (path: string) => {
+        return path.includes(".claude/rules") || path.includes(".metadata.json");
+      },
+      writeFile: async (path: string, content: string) => {
+        writtenFiles.set(path, content);
+      },
+      readFile: async (path: string) => {
+        if (path.includes(".metadata.json")) {
+          return JSON.stringify({ files: { "tdd-workflow.md": { source: "core/tdd-workflow.md" } } });
+        }
+        if (path.includes("tdd-workflow.md")) {
+          return localContent;
+        }
+        return "";
+      },
+      readDir: async (path: string) => {
+        if (path.includes("/rules")) {
+          return [{ name: "tdd-workflow.md", isFile: true, isDirectory: false }];
+        }
+        return [];
+      },
+    };
+
+    // Upgrade global scope
+    const globalResult = await performUpgrade(
+      "/home/user/.claude/rules",
+      "/home/user/.claude",
+      "https://raw.githubusercontent.com/test/repo",
+      "main",
+      false,
+      false,
+      mockFs
+    );
+
+    // Upgrade project scope
+    const projectResult = await performUpgrade(
+      "/project/.claude/rules",
+      "/project/.claude",
+      "https://raw.githubusercontent.com/test/repo",
+      "main",
+      false,
+      false,
+      mockFs
+    );
+
+    // Both should upgrade independently
+    assertEquals(globalResult.upgraded.length, 1);
+    assertEquals(projectResult.upgraded.length, 1);
+    assertEquals(writtenFiles.has("/home/user/.claude/rules/tdd-workflow.md"), true);
+    assertEquals(writtenFiles.has("/project/.claude/rules/tdd-workflow.md"), true);
+  });
+
+  it("skips global directory if it doesn't exist", async () => {
+    const mockFs: FileSystem = {
+      mkdir: async () => {},
+      exists: async (path: string) => {
+        // Global directory doesn't exist
+        if (path.includes("/home/user/.claude")) {
+          return false;
+        }
+        return true;
+      },
+      writeFile: async () => {},
+      readFile: async () => "",
+      readDir: async () => [],
+    };
+
+    const result = await performUpgrade(
+      "/home/user/.claude/rules",
+      "/home/user/.claude",
+      "https://raw.githubusercontent.com/test/repo",
+      "main",
+      false,
+      false,
+      mockFs
+    );
+
+    // Should handle gracefully with no upgrades
+    assertEquals(result.upgraded.length, 0);
+  });
+
+  it("returns separate results for global and project upgrades", async () => {
+    // This test will verify that upgradeAll function (to be implemented)
+    // returns separate results for each scope
+    const mockFs: FileSystem = {
+      mkdir: async () => {},
+      exists: async () => true,
+      writeFile: async () => {},
+      readFile: async () => JSON.stringify({ files: {} }),
+      readDir: async () => [],
+    };
+
+    // Import the new function that doesn't exist yet
+    const { upgradeAll } = await import("./upgrade.ts");
+
+    const results = await upgradeAll(
+      "/project",
+      "/home/user",
+      "https://raw.githubusercontent.com/test/repo",
+      "main",
+      false,
+      false,
+      mockFs
+    );
+
+    // Should return results for both scopes
+    assert(results.global !== undefined);
+    assert(results.project !== undefined);
+    assertEquals(Array.isArray(results.global.upgraded), true);
+    assertEquals(Array.isArray(results.project.upgraded), true);
+  });
+});
