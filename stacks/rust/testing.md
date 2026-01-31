@@ -50,8 +50,6 @@ fn test_integration() {
 
 ## Testing Guidelines
 
-Follow core TDD workflow testing principles (see [core/tdd-workflow.md](../../core/tdd-workflow.md)).
-
 **Rust-specific:**
 - Use `assert!`, `assert_eq!`, `assert_ne!` for assertions
 - Use `#[should_panic]` for tests expecting panics

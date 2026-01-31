@@ -81,8 +81,6 @@ func TestAdd(t *testing.T) {
 
 ## Testing Guidelines
 
-Follow core TDD workflow testing principles (see [core/tdd-workflow.md](../../core/tdd-workflow.md)).
-
 **Go-specific:**
 - Use table-driven tests for multiple scenarios
 - Test file naming: `*_test.go`

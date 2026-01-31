@@ -48,8 +48,6 @@ def test_validation(input, expected):
 
 ## Testing Guidelines
 
-Follow core TDD workflow testing principles (see [core/tdd-workflow.md](../../core/tdd-workflow.md)).
-
 **Python-specific:**
 - Test files: `test_*.py` in `tests/` directory
 - Test functions: `test_*`

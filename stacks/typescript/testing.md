@@ -45,8 +45,6 @@ describe('add', () => {
 
 ## Testing Guidelines
 
-Follow core TDD workflow testing principles (see [core/tdd-workflow.md](../../core/tdd-workflow.md)).
-
 **TypeScript-specific:**
 - Test files: `*.test.ts` or `*.spec.ts`
 - Use `describe` for grouping tests
