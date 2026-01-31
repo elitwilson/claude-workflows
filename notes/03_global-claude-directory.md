@@ -126,9 +126,9 @@ _Edge cases, constraints, or gotchas to keep in mind_
 ## High-Level Implementation Plan
 
 ### Phase 1: Home Directory Resolution
-- [ ] Add utility function to resolve home directory path (`~/` expansion)
-- [ ] Add tests for home directory resolution
-- [ ] Add utility to determine target directory based on scope choice
+- [x] Add utility function to resolve home directory path (`~/` expansion)
+- [x] Add tests for home directory resolution
+- [x] Add utility to determine target directory based on scope choice
 
 ### Phase 2: Scope Selection UI
 - [ ] Add cliffy radio button prompt for scope selection
@@ -186,6 +186,28 @@ Project    .claude/ in repository             All collaborators on repository   
 ```
 
 This feature implements support for the "User" scope.
+
+---
+
+## Implementation Progress
+
+### 2026-01-31 - Phase 1 Complete
+
+**What was done:**
+- Implemented `resolveHomePath(path: string, homeDir: string): string`
+  - Expands ~ to home directory
+  - Handles ~/path format
+  - Returns absolute paths unchanged
+- Implemented `getTargetDirectory(scope: Scope, projectRoot: string, homeDir: string): string`
+  - Returns {projectRoot}/.claude for project scope
+  - Returns {homeDir}/.claude for global scope
+- Added comprehensive tests (7 passing tests)
+- Commit: `feat: implement home directory resolution utilities`
+
+**Pattern established:**
+- Pure functions in lib.ts (no Deno-specific APIs)
+- HomeDir passed as parameter from entry points
+- Ready for Node.js port when needed
 
 ---
 
