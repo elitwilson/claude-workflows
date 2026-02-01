@@ -28,21 +28,49 @@ npx @elitwilson/claude-workflows upgrade
 
 ---
 
+## Project Structure
+
+```
+claude-workflows/
+├── plugins/claude/          # Shared source of truth
+│   ├── lib.ts               # Core utilities (imported by both)
+│   ├── discovery.ts         # GitHub API discovery (imported by both)
+│   ├── metadata.ts          # Metadata management (imported by both)
+│   ├── deno-fs.ts           # Deno FileSystem adapter (MIS only)
+│   ├── add.ts               # MIS add command entry point
+│   ├── upgrade.ts           # MIS upgrade command entry point
+│   └── *.test.ts            # Deno tests for shared logic
+│
+├── npx/                     # NPX CLI package
+│   ├── src/
+│   │   ├── cli.ts           # Entry point + commander setup
+│   │   ├── node-fs.ts       # Node FileSystem adapter
+│   │   └── commands/
+│   │       ├── add.ts       # Add command (uses inquirer)
+│   │       └── upgrade.ts   # Upgrade command
+│   ├── tests/               # Node tests (mirrors MIS test coverage)
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── tsup.config.ts
+```
+
+---
+
 ## Integration Points
 
 ### Shared Core Library
-The existing business logic from `.makeitso/plugins/claude/` will be extracted into shared modules:
+The existing business logic in `plugins/claude/` is imported directly by both runtimes:
 - `lib.ts` - Core utilities (frontmatter parsing, checksums, file operations)
 - `metadata.ts` - Metadata management
 - `discovery.ts` - GitHub API discovery
 
-### New Components
+### New Components (npx/)
 - **Node.js FileSystem adapter** (`node-fs.ts`) - Implements FileSystem interface using Node's fs module
-- **CLI entry point** - Argument parsing and command routing
-- **Node.js prompts** - Interactive UI using Node-compatible library (replace Cliffy)
+- **CLI entry point** (`cli.ts`) - Commander-based argument parsing and command routing
+- **Node.js prompts** - Interactive UI using inquirer (replaces Cliffy)
 
 ### Relationship to MIS Plugin
-- Both distributions share the same core business logic
+- Both distributions import the same shared modules from `plugins/claude/`
 - MIS plugin uses `deno-fs.ts`, CLI uses `node-fs.ts`
 - Both target the same `.claude/` directory structure and metadata format
 - Files installed by one can be upgraded by the other
@@ -63,13 +91,13 @@ The existing business logic from `.makeitso/plugins/claude/` will be extracted i
 ## Scope
 
 ### In Scope (MVP)
-- Extract shared core logic into reusable modules
 - Create Node.js FileSystem adapter
-- Build CLI with commander/yargs for argument parsing
-- Implement interactive prompts with inquirer/prompts
+- Build CLI with commander for argument parsing
+- Implement interactive prompts with inquirer
 - Support `add` and `upgrade` commands
 - Support `--force` and `--dry-run` flags
-- Bundle and publish to npm
+- Tests mirroring MIS plugin coverage
+- Bundle with tsup and publish to npm
 - Basic documentation in README
 
 ### Out of Scope (Future)
@@ -83,23 +111,26 @@ The existing business logic from `.makeitso/plugins/claude/` will be extracted i
 
 ## Important Considerations
 
-### Code Organization (Deferred Decision)
-For now, keep everything in current locations. Structure can be reorganized later into proper monorepo if needed. Priority is getting it working.
+### Code Organization
+- Shared logic stays in `plugins/claude/`
+- NPX CLI lives in `npx/` directory
+- Imports shared code directly: `import { ... } from "../plugins/claude/lib.ts"`
+- tsup bundles everything into single distributable
 
 ### Packaging
-- Package name: `@elitwilson/claude-workflows` (or similar with unique username prefix)
-- Bundler: **Vite?** (need to investigate if appropriate for CLI bundling)
-- Alternative: esbuild, rollup, or just tsc
+- Package name: `@elitwilson/claude-workflows`
+- Bundler: **tsup** (esbuild wrapper, standard for modern CLIs)
+- Single bundled output for fast npx execution
 
 ### Testing Strategy
-- Keep existing Deno tests for now
-- Run them as-is during development
-- Future: consider cross-runtime test framework if maintenance becomes burdensome
+- Shared logic (`plugins/claude/*.ts`) tested by existing Deno tests
+- NPX CLI layer (`npx/`) gets Node tests that mirror MIS plugin test coverage
+- Trust Deno tests for shared logic validation
 
 ### Configuration
-- Implementation detail to figure out during development
-- Options: CLI flags only, env vars, config file, or combination
-- Default to same values as MIS plugin (`elitwilson/claude-workflows`)
+- Hardcode defaults: `elitwilson/claude-workflows`, `main` branch
+- CLI flags for `--force`, `--dry-run`
+- No config file for MVP
 
 ### Versioning
 - Future problem - defer until we have both working
@@ -109,17 +140,13 @@ For now, keep everything in current locations. Structure can be reorganized late
 
 ## High-Level Todo
 
-- [ ] Research: Can Vite bundle Node CLI applications?
-- [ ] Extract core logic to shared location (or leave in place with dual imports)
+- [ ] Scaffold `npx/` directory (package.json, tsconfig, tsup.config.ts)
 - [ ] Create `node-fs.ts` FileSystem adapter
-- [ ] Choose and integrate argument parser (commander vs yargs)
-- [ ] Choose and integrate prompt library (inquirer vs prompts vs similar)
-- [ ] Create CLI entry point with command routing
-- [ ] Implement `add` command wrapper
-- [ ] Implement `upgrade` command wrapper
-- [ ] Set up package.json with proper bin configuration
-- [ ] Bundle/build process
-- [ ] Test locally with `npm link` or similar
+- [ ] Create CLI entry point with commander
+- [ ] Implement `add` command with inquirer prompts
+- [ ] Implement `upgrade` command
+- [ ] Write tests mirroring MIS plugin coverage
+- [ ] Test locally with `npm link`
 - [ ] Publish to npm
 - [ ] Update main README with npx instructions
 
@@ -128,20 +155,20 @@ For now, keep everything in current locations. Structure can be reorganized late
 ## Technical Decisions
 
 ### Runtime Compatibility
-**Decision:** Use Deno for tests, Node for CLI runtime
-**Rationale:** Existing tests work, no reason to convert. CLI needs broad compatibility (Node is everywhere).
+**Decision:** Deno tests for shared logic, Node for CLI runtime
+**Rationale:** Existing Deno tests validate shared logic. CLI targets Node for broad compatibility.
 
 ### Shared Code Strategy
-**Decision:** Keep code where it is for now, import from both contexts
-**Rationale:** Avoid premature reorganization. Can refactor to monorepo structure later if needed.
+**Decision:** Import directly from `plugins/claude/` into `npx/src/`
+**Rationale:** Single source of truth. tsup bundles everything together.
 
 ### Bundle Strategy
-**Decision:** TBD - Investigate Vite for CLI bundling
-**Fallback:** esbuild or rollup if Vite isn't suitable
+**Decision:** tsup (esbuild wrapper)
+**Rationale:** Standard for modern Node CLIs. Fast, minimal config, handles TypeScript natively.
 
 ### Prompt Library
-**Decision:** TBD during implementation
-**Options:** inquirer (popular), prompts (lightweight), enquirer (Cliffy-like)
+**Decision:** inquirer
+**Rationale:** Most popular, well-maintained, familiar API similar to Cliffy.
 
 ---
 
@@ -170,6 +197,6 @@ Files installed or upgraded by either tool (MIS plugin or npx CLI) should work w
 
 ## Reference
 
-- Existing MIS plugin: `.makeitso/plugins/claude/`
+- Shared plugin code: `plugins/claude/`
 - Core workflows repo: https://github.com/elitwilson/claude-workflows
 - Related feature: [01_make-it-so-plugin-plan.md](./make-it-so-plugin-plan.md)
