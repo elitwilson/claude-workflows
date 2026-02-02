@@ -1,6 +1,6 @@
 ---
-version: 0.1.3
-updated: 2026-01-30
+version: 0.1.4
+updated: 2026-02-02
 ---
 
 # TDD Workflow
