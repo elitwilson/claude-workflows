@@ -70,8 +70,6 @@ STUFF
 - [ ] No implementation detail testing
 - [ ] Critical paths and edge cases covered
 
-**Git commit:** `test: scaffold [feature] tests`
-
 ---
 
 ### RED Phase: Real Tests
