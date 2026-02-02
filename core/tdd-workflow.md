@@ -5,8 +5,6 @@ updated: 2026-02-02
 
 # TDD Workflow
 
-STUFF
-
 ## !! CRITICAL !! Core Principles
 
 **Ownership:** Developer owns planning and architectural decisions. AI executes the plan.
@@ -86,8 +84,6 @@ STUFF
 - [ ] Failures indicate missing implementation (not bugs in tests)
 - [ ] Tests define clear contracts
 
-**Git commit:** `test: add failing tests for [feature]`
-
 ---
 
 ### GREEN Phase: Implementation
@@ -111,8 +107,6 @@ STUFF
 - [ ] No unplanned features added
 - [ ] No code duplication
 
-**Git commit:** `feat: implement [feature]`
-
 ---
 
 ### REFACTOR Phase (Optional)
@@ -127,8 +121,6 @@ STUFF
 **Quality gate:**
 - [ ] All tests still pass
 - [ ] Code is measurably better
-
-**Git commit:** `refactor: [description]`
 
 ---
 
@@ -166,22 +158,3 @@ Wait for explicit developer approval:
 - Implementation details that could change
 
 **Rule of thumb:** If refactoring breaks the test without changing behavior, you're testing implementation details.
-
----
-
-## Git Workflow
-
-**Commit at the end of each TDD phase. Never commit mid-phase.**
-
-**Commit messages** (conventional commits format):
-- After RED scaffold: `test: scaffold [feature] tests`
-- After RED real tests: `test: add failing tests for [feature]`
-- After GREEN: `feat: implement [feature]`
-- After REFACTOR: `refactor: [description]`
-
-**Other commit types:**
-- `fix:` - Bug fix
-- `docs:` - Documentation changes
-- `chore:` - Build, tooling, dependencies
-
-**Keep descriptions concise and imperative** (e.g., "implement feature" not "implemented the feature").
