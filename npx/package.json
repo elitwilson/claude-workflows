@@ -1,6 +1,6 @@
 {
   "name": "@elitwilson/claude-workflows",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "CLI tool to add and upgrade Claude workflow rules",
   "type": "module",
   "bin": {
