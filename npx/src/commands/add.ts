@@ -41,7 +41,6 @@ export async function runAdd(options: AddOptions): Promise<void> {
 
   console.log("Add Claude Workflows\n");
 
-  try {
   // Scope selection
   const { scope } = await inquirer.prompt<{ scope: Scope }>([
     {
@@ -178,13 +177,5 @@ export async function runAdd(options: AddOptions): Promise<void> {
   console.log(`  Successfully processed: ${successCount}`);
   if (errorCount > 0) {
     console.log(`  Errors: ${errorCount}`);
-  }
-  } catch (error) {
-    if (error instanceof Error && error.name === "ExitPromptError") {
-      // Inquirer hides the cursor before throwing — restore it before we exit
-      process.stdout.write("\x1B[?25h\n");
-      process.exit(0);
-    }
-    throw error;
   }
 }

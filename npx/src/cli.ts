@@ -9,6 +9,14 @@ import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Inquirer v9 hides the cursor during prompts. If SIGINT arrives before it
+// can restore it, the cursor stays invisible. Handle it at the process level
+// so the restore happens synchronously on the signal, before the process exits.
+process.on("SIGINT", () => {
+  process.stdout.write("\x1B[?25h\n");
+  process.exit(0);
+});
+
 export const program = new Command();
 
 program
