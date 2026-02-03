@@ -39,10 +39,13 @@ program
 // realpathSync is needed to handle both pnpm (unresolved ../.. segments in argv[1])
 // and npx (argv[1] is a .bin symlink, import.meta.url is the real path).
 if (fileURLToPath(import.meta.url) === realpathSync(resolve(process.argv[1]))) {
-  // Restore cursor on exit — inquirer hides it during prompts but doesn't
-  // clean up when interrupted. exit fires regardless of how the process stops.
-  process.on("exit", () => {
-    process.stdout.write("\x1B[?25h");
+  // Ctrl-C during an inquirer prompt throws ExitPromptError. Silence it
+  // so the terminal stays clean instead of dumping a stack trace.
+  process.on("uncaughtException", (error) => {
+    if (error instanceof Error && error.name === "ExitPromptError") {
+      process.exit(0);
+    }
+    throw error;
   });
 
   program.parse();
