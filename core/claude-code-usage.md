@@ -1,5 +1,5 @@
 ---
-version: 0.1.0
+version: 0.1.1
 updated: 2026-01-30
 ---
 
@@ -27,8 +27,5 @@ The user's development workflow is collaborative and interactive through the mai
 
 **Never use interactive question/answer tools.**
 
-Format questions as numbered list in the conversation:
-1. Question one?
-2. Question two?
-
+Format questions as a numbered list of open-ended questions in the conversation.
 The user will respond by number in the main thread.
