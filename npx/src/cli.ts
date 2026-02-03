@@ -5,6 +5,7 @@
  */
 
 import { Command } from "commander";
+import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,10 +35,9 @@ program
     await runUpgrade(options);
   });
 
-// Only parse when run directly (not when imported for testing)
-// resolve() is needed because pnpm's bin wrapper passes argv[1] with unresolved
-// relative segments (e.g. /Library/pnpm/../../workdev/...) which won't match
-// the canonical path in import.meta.url
-if (fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+// Only parse when run directly (not when imported for testing).
+// realpathSync is needed to handle both pnpm (unresolved ../.. segments in argv[1])
+// and npx (argv[1] is a .bin symlink, import.meta.url is the real path).
+if (fileURLToPath(import.meta.url) === realpathSync(resolve(process.argv[1]))) {
   program.parse();
 }
