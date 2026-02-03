@@ -1,5 +1,5 @@
 ---
-version: 0.1.0
+version: 0.1.1
 updated: 2026-01-30
 ---
 
@@ -47,8 +47,6 @@ def test_validation(input, expected):
 ---
 
 ## Testing Guidelines
-
-Follow core TDD workflow testing principles (see [core/tdd-workflow.md](../../core/tdd-workflow.md)).
 
 **Python-specific:**
 - Test files: `test_*.py` in `tests/` directory

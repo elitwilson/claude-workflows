@@ -39,7 +39,7 @@ updated: 2026-01-30
 
     // Remote returns same version — fetch will be called but version check skips upgrade
     globalThis.fetch = async () => {
-      return new Response(localContent, { status: 200 });
+      return new Response(JSON.stringify({ content: btoa(localContent) }), { status: 200 });
     };
 
     const mockFs: FileSystem = {
@@ -66,7 +66,7 @@ updated: 2026-01-30
     const result = await performUpgrade(
       ".claude/rules",
       ".claude",
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       false,
       false,
@@ -111,7 +111,7 @@ updated: 2026-01-31
 # Updated content`;
 
     globalThis.fetch = async () => {
-      return new Response(remoteContent, { status: 200 });
+      return new Response(JSON.stringify({ content: btoa(remoteContent) }), { status: 200 });
     };
 
     const mockFs: FileSystem = {
@@ -139,7 +139,7 @@ updated: 2026-01-31
     const result = await performUpgrade(
       ".claude/rules",
       ".claude",
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       false, // force=false
       false,
@@ -164,7 +164,7 @@ updated: 2026-01-31
 # Updated content`;
 
     globalThis.fetch = async () => {
-      return new Response(remoteContent, { status: 200 });
+      return new Response(JSON.stringify({ content: btoa(remoteContent) }), { status: 200 });
     };
 
     const writtenFiles = new Map<string, string>();
@@ -195,7 +195,7 @@ updated: 2026-01-31
     const result = await performUpgrade(
       ".claude/rules",
       ".claude",
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       true, // force=true
       false,
@@ -223,7 +223,7 @@ updated: 2026-01-31
 # Updated content`;
 
     globalThis.fetch = async () => {
-      return new Response(remoteContent, { status: 200 });
+      return new Response(JSON.stringify({ content: btoa(remoteContent) }), { status: 200 });
     };
 
     const writtenFiles = new Map<string, string>();
@@ -255,7 +255,7 @@ updated: 2026-01-31
     const result = await performUpgrade(
       ".claude/rules",
       ".claude",
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       false,
       false,
@@ -280,13 +280,8 @@ updated: 2026-01-31
 ---
 # Updated content`;
 
-    globalThis.fetch = async (url: string | URL | Request) => {
-      const urlStr = url.toString();
-      // Original version fetch returns same content as local (unmodified)
-      if (urlStr.includes("/0.1.0/")) {
-        return new Response(localContent, { status: 200 });
-      }
-      return new Response(remoteContent, { status: 200 });
+    globalThis.fetch = async () => {
+      return new Response(JSON.stringify({ content: btoa(remoteContent) }), { status: 200 });
     };
 
     const writtenFiles = new Map<string, string>();
@@ -317,7 +312,7 @@ updated: 2026-01-31
     const result = await performUpgrade(
       ".claude/rules",
       ".claude",
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       false,
       false,
@@ -346,7 +341,7 @@ updated: 2026-01-31
     const result = await performUpgrade(
       ".claude/rules",
       ".claude",
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       false,
       false,
@@ -371,12 +366,8 @@ updated: 2026-01-31
 ---
 # Updated content`;
 
-    globalThis.fetch = async (url: string | URL | Request) => {
-      const urlStr = url.toString();
-      if (urlStr.includes("/0.1.0/")) {
-        return new Response(localContent, { status: 200 });
-      }
-      return new Response(remoteContent, { status: 200 });
+    globalThis.fetch = async () => {
+      return new Response(JSON.stringify({ content: btoa(remoteContent) }), { status: 200 });
     };
 
     const writtenFiles: string[] = [];
@@ -407,7 +398,7 @@ updated: 2026-01-31
     const result = await performUpgrade(
       ".claude/rules",
       ".claude",
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       false,
       true, // dry-run
@@ -444,12 +435,8 @@ updated: 2026-01-31
 ---
 # Updated content`;
 
-    globalThis.fetch = async (url: string | URL | Request) => {
-      const urlStr = url.toString();
-      if (urlStr.includes("/0.1.0/")) {
-        return new Response(localContent, { status: 200 });
-      }
-      return new Response(remoteContent, { status: 200 });
+    globalThis.fetch = async () => {
+      return new Response(JSON.stringify({ content: btoa(remoteContent) }), { status: 200 });
     };
 
     const writtenFiles = new Map<string, string>();
@@ -483,7 +470,7 @@ updated: 2026-01-31
     const globalResult = await performUpgrade(
       "/home/user/.claude/rules",
       "/home/user/.claude",
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       false,
       false,
@@ -494,7 +481,7 @@ updated: 2026-01-31
     const projectResult = await performUpgrade(
       "/project/.claude/rules",
       "/project/.claude",
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       false,
       false,
@@ -526,7 +513,7 @@ updated: 2026-01-31
     const result = await performUpgrade(
       "/home/user/.claude/rules",
       "/home/user/.claude",
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       false,
       false,
@@ -554,7 +541,7 @@ updated: 2026-01-31
     const results = await upgradeAll(
       "/project",
       "/home/user",
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       false,
       false,

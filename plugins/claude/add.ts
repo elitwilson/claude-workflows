@@ -8,6 +8,7 @@ import {
   discoverStackWorkflows,
 } from "./discovery.ts";
 import {
+  buildRepoUrl,
   fetchWorkflowFile,
   ensureDirectory,
   writeWorkflowFile,
@@ -103,8 +104,7 @@ try {
   await ensureDirectory(claudeDir, dryRun, denoFs, console.log);
   await ensureDirectory(rulesDir, dryRun, denoFs, console.log);
 
-  // Build raw GitHub URL base
-  const rawBaseUrl = `https://raw.githubusercontent.com/${owner}/${repo}`;
+  const repoUrl = buildRepoUrl(owner, repo);
 
   // Load existing metadata
   const metadata = await loadMetadata(claudeDir, denoFs);
@@ -115,7 +115,7 @@ try {
 
   for (const filePath of allFiles) {
     try {
-      const content = await fetchWorkflowFile(rawBaseUrl, branch, filePath);
+      const content = await fetchWorkflowFile(repoUrl, branch, filePath);
       const fileName = filePath.split("/").pop() || filePath;
       const targetPath = `${rulesDir}/${fileName}`;
 

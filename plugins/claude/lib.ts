@@ -38,16 +38,24 @@ export interface Frontmatter {
 }
 
 /**
- * Fetches a workflow file from the GitHub repository
+ * Builds the GitHub API base URL for a given repo.
+ * Single source of truth — call sites pass owner/repo, not a URL.
+ */
+export function buildRepoUrl(owner: string, repo: string): string {
+  return `https://api.github.com/repos/${owner}/${repo}`;
+}
+
+/**
+ * Fetches a workflow file from the GitHub Contents API.
+ * Uses api.github.com instead of raw.githubusercontent.com to avoid
+ * Fastly CDN caching (which has a 5-minute TTL that query-param busters don't bypass).
  */
 export async function fetchWorkflowFile(
   repoUrl: string,
   branch: string,
   filePath: string
 ): Promise<string> {
-  // Add cache-busting timestamp to avoid GitHub CDN caching issues
-  const cacheBuster = `?t=${Date.now()}`;
-  const url = `${repoUrl}/${branch}/${filePath}${cacheBuster}`;
+  const url = `${repoUrl}/contents/${filePath}?ref=${branch}`;
 
   try {
     const response = await fetch(url);
@@ -58,7 +66,9 @@ export async function fetchWorkflowFile(
       );
     }
 
-    return await response.text();
+    const data = await response.json();
+    // GitHub API returns base64 content with newlines every 60 chars
+    return atob(data.content.replace(/\n/g, ""));
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("Failed to fetch")) {
       throw error;

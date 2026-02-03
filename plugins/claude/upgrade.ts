@@ -1,4 +1,5 @@
 import {
+  buildRepoUrl,
   fetchWorkflowFile,
   writeWorkflowFile,
   parseFrontmatter,
@@ -205,7 +206,7 @@ if (import.meta.main) {
     const dryRun = ctx.dry_run || false;
 
     const homeDir = getHomeDir();
-    const rawBaseUrl = `https://raw.githubusercontent.com/${owner}/${repo}`;
+    const repoUrl = buildRepoUrl(owner, repo);
 
     if (dryRun) {
       console.log("🔍 Dry-run mode: No files will be modified\n");
@@ -215,7 +216,7 @@ if (import.meta.main) {
     const { global: globalResult, project: projectResult } = await upgradeAll(
       ctx.project_root,
       homeDir,
-      rawBaseUrl,
+      repoUrl,
       branch,
       force,
       dryRun

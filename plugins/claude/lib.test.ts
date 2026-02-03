@@ -26,13 +26,13 @@ describe("fetchWorkflowFile", () => {
 
     globalThis.fetch = async (url: string | URL | Request) => {
       const urlStr = url.toString();
-      assertEquals(urlStr.startsWith("https://raw.githubusercontent.com/test/repo/main/path/to/file.md?t="), true);
+      assertEquals(urlStr, "https://api.github.com/repos/test/repo/contents/path/to/file.md?ref=main");
 
-      return new Response(mockContent, { status: 200 });
+      return new Response(JSON.stringify({ content: btoa(mockContent) }), { status: 200 });
     };
 
     const result = await fetchWorkflowFile(
-      "https://raw.githubusercontent.com/test/repo",
+      "https://api.github.com/repos/test/repo",
       "main",
       "path/to/file.md"
     );
@@ -48,7 +48,7 @@ describe("fetchWorkflowFile", () => {
     await assertRejects(
       async () => {
         await fetchWorkflowFile(
-          "https://raw.githubusercontent.com/test/repo",
+          "https://api.github.com/repos/test/repo",
           "main",
           "missing.md"
         );
@@ -66,7 +66,7 @@ describe("fetchWorkflowFile", () => {
     await assertRejects(
       async () => {
         await fetchWorkflowFile(
-          "https://raw.githubusercontent.com/test/repo",
+          "https://api.github.com/repos/test/repo",
           "main",
           "file.md"
         );
