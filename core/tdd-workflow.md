@@ -1,11 +1,9 @@
 ---
-version: 0.1.3
-updated: 2026-01-30
+version: 0.1.4
+updated: 2026-02-02
 ---
 
 # TDD Workflow
-
-STUFF
 
 ## !! CRITICAL !! Core Principles
 
@@ -70,8 +68,6 @@ STUFF
 - [ ] No implementation detail testing
 - [ ] Critical paths and edge cases covered
 
-**Git commit:** `test: scaffold [feature] tests`
-
 ---
 
 ### RED Phase: Real Tests
@@ -87,8 +83,6 @@ STUFF
 - [ ] All tests fail with clear, expected failures
 - [ ] Failures indicate missing implementation (not bugs in tests)
 - [ ] Tests define clear contracts
-
-**Git commit:** `test: add failing tests for [feature]`
 
 ---
 
@@ -113,8 +107,6 @@ STUFF
 - [ ] No unplanned features added
 - [ ] No code duplication
 
-**Git commit:** `feat: implement [feature]`
-
 ---
 
 ### REFACTOR Phase (Optional)
@@ -129,8 +121,6 @@ STUFF
 **Quality gate:**
 - [ ] All tests still pass
 - [ ] Code is measurably better
-
-**Git commit:** `refactor: [description]`
 
 ---
 
@@ -168,22 +158,3 @@ Wait for explicit developer approval:
 - Implementation details that could change
 
 **Rule of thumb:** If refactoring breaks the test without changing behavior, you're testing implementation details.
-
----
-
-## Git Workflow
-
-**Commit at the end of each TDD phase. Never commit mid-phase.**
-
-**Commit messages** (conventional commits format):
-- After RED scaffold: `test: scaffold [feature] tests`
-- After RED real tests: `test: add failing tests for [feature]`
-- After GREEN: `feat: implement [feature]`
-- After REFACTOR: `refactor: [description]`
-
-**Other commit types:**
-- `fix:` - Bug fix
-- `docs:` - Documentation changes
-- `chore:` - Build, tooling, dependencies
-
-**Keep descriptions concise and imperative** (e.g., "implement feature" not "implemented the feature").
