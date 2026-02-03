@@ -1,6 +1,6 @@
 {
   "name": "@elitwilson/claude-workflows",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "description": "CLI tool to add and upgrade Claude workflow rules",
   "type": "module",
   "bin": {
@@ -20,6 +20,17 @@
   ],
   "author": "Eli Wilson",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elitwilson/claude-workflows.git",
+    "directory": "npx"
+  },
+  "homepage": "https://github.com/elitwilson/claude-workflows#readme",
+  "bugs": "https://github.com/elitwilson/claude-workflows/issues",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "devDependencies": {
     "@types/node": "^20.11.0",
     "tsup": "^8.0.0",
