@@ -9,7 +9,6 @@ export default defineConfig({
   splitting: false,
   sourcemap: true,
   shims: true,
-  banner: {
-    js: "#!/usr/bin/env node",
-  },
+  // MIS plugin API is only used in Deno entry points, not in Node CLI
+  external: ["../../mis-plugin-api.ts"],
 });

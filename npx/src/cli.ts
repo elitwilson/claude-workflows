@@ -5,6 +5,8 @@
  */
 
 import { Command } from "commander";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const program = new Command();
 
@@ -33,6 +35,9 @@ program
   });
 
 // Only parse when run directly (not when imported for testing)
-if (import.meta.url === `file://${process.argv[1]}`) {
+// resolve() is needed because pnpm's bin wrapper passes argv[1] with unresolved
+// relative segments (e.g. /Library/pnpm/../../workdev/...) which won't match
+// the canonical path in import.meta.url
+if (fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   program.parse();
 }
