@@ -181,6 +181,8 @@ export async function runAdd(options: AddOptions): Promise<void> {
   }
   } catch (error) {
     if (error instanceof Error && error.name === "ExitPromptError") {
+      // Inquirer hides the cursor before throwing — restore it before we exit
+      process.stdout.write("\x1B[?25h\n");
       process.exit(0);
     }
     throw error;
