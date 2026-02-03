@@ -39,11 +39,10 @@ program
 // realpathSync is needed to handle both pnpm (unresolved ../.. segments in argv[1])
 // and npx (argv[1] is a .bin symlink, import.meta.url is the real path).
 if (fileURLToPath(import.meta.url) === realpathSync(resolve(process.argv[1]))) {
-  // Restore cursor visibility on Ctrl-C — inquirer hides it during prompts
-  // but doesn't clean up on SIGINT
-  process.on("SIGINT", () => {
+  // Restore cursor on exit — inquirer hides it during prompts but doesn't
+  // clean up when interrupted. exit fires regardless of how the process stops.
+  process.on("exit", () => {
     process.stdout.write("\x1B[?25h");
-    process.exit(130);
   });
 
   program.parse();
